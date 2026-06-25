@@ -39,3 +39,22 @@ input[name="qty"], input[name="actual"]{font-size:28px;font-weight:900;text-alig
   .qtyRow{grid-template-columns:1fr 72px}
   .orderLine{grid-template-columns:1fr 72px}
 }
+
+
+/* V1.1 NCC pack conversion */
+.orange{border-left:6px solid #f97316}
+.orderCard{display:grid;grid-template-columns:1fr 120px;align-items:center;gap:12px}
+.orderCard small{display:block;color:#64748b;margin-top:4px}
+.orderQty{text-align:right}
+.orderQty span{display:block;font-size:18px;letter-spacing:-2px}
+.orderQty strong{display:block;font-size:18px;font-variant-numeric:tabular-nums}
+.orderQty small{font-size:12px}
+.orderSummaryList{display:grid;gap:8px}
+.summaryLine{display:grid;grid-template-columns:1fr 96px 96px;align-items:center;padding:12px;border:1px solid #e2e8f0;border-radius:14px;background:#f8fafc}
+.summaryLine span{font-weight:800}
+.summaryLine b,.summaryLine small{text-align:right;font-variant-numeric:tabular-nums}
+.summaryLine small{color:#64748b;font-weight:700}
+@media(max-width:520px){
+  .orderCard{grid-template-columns:1fr 100px}
+  .summaryLine{grid-template-columns:1fr 82px 82px}
+}

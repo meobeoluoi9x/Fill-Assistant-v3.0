@@ -317,6 +317,24 @@ function renderToday(){
   `;
 }
 
+
+function unitName(product){
+  return String(product || "").toLowerCase().includes("aqua") ? "chai" : "lon";
+}
+
+function packText(qty, product){
+  const info = productInfo(product);
+  const packs = Math.ceil(Number(qty || 0) / info.pack);
+  const unit = unitName(product);
+  return {
+    packs,
+    packSize: info.pack,
+    qty: packs * info.pack,
+    unit,
+    text: `${packs} thùng (${packs * info.pack} ${unit})`
+  };
+}
+
 function renderOrders(){
   const cab = displayCabin();
   let rows = [];
@@ -324,16 +342,54 @@ function renderOrders(){
     const [machine, product] = k.split("||");
     const order = suggestOrder(qty, product);
     if(order > 0){
-      rows.push({machine, product, qty, order});
+      rows.push({machine, product, qty, order, pack: packText(order, product)});
     }
   });
-  rows.sort((a,b)=>b.order-a.order);
-  $('#orderBox').innerHTML = rows.length ? rows.map(r=>`
-    <div class="pill red orderLine">
-      <span><b>${r.machine} - ${r.product}</b><small>Tồn cabin: ${r.qty}</small></span>
-      <strong>${r.order}</strong>
-    </div>
-  `).join("") : `<p class="muted">Chưa có sản phẩm nào cần đặt theo ngưỡng hiện tại.</p>`;
+  rows.sort((a,b)=>a.machine.localeCompare(b.machine,'vi') || a.product.localeCompare(b.product,'vi'));
+
+  const orderBox = document.getElementById("orderBox");
+  if(orderBox){
+    orderBox.innerHTML = rows.length ? rows.map(r=>{
+      const level = r.pack.packs >= 3 ? "red" : r.pack.packs === 2 ? "orange" : "yellow";
+      const icons = "📦".repeat(Math.min(r.pack.packs, 4));
+      return `
+        <div class="pill ${level} orderCard">
+          <div>
+            <b>${r.machine} - ${r.product}</b>
+            <small>Tồn cabin: ${r.qty} ${unitName(r.product)}</small>
+          </div>
+          <div class="orderQty">
+            <span>${icons}</span>
+            <strong>${r.pack.packs} thùng</strong>
+            <small>${r.pack.qty} ${r.pack.unit}</small>
+          </div>
+        </div>
+      `;
+    }).join("") : `<p class="muted">Chưa có sản phẩm nào cần đặt theo ngưỡng hiện tại.</p>`;
+  }
+
+  const summary = {};
+  rows.forEach(r=>{
+    summary[r.product] ||= {packs:0, qty:0, unit:unitName(r.product), packSize: productInfo(r.product).pack};
+    summary[r.product].packs += r.pack.packs;
+    summary[r.product].qty += r.pack.qty;
+  });
+
+  const summaryBox = document.getElementById("orderSummaryBox");
+  if(summaryBox){
+    const items = Object.entries(summary).sort((a,b)=>a[0].localeCompare(b[0],'vi'));
+    summaryBox.innerHTML = items.length ? `
+      <div class="orderSummaryList">
+        ${items.map(([product, s])=>`
+          <div class="summaryLine">
+            <span>${product}</span>
+            <b>${s.packs} thùng</b>
+            <small>${s.qty} ${s.unit}</small>
+          </div>
+        `).join("")}
+      </div>
+    ` : `<p class="muted">Chưa có đơn NCC cần tổng hợp.</p>`;
+  }
 }
 
 function renderSlow(){

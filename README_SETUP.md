@@ -255,3 +255,27 @@ Có Sửa / Xóa / Hoàn tác cho:
 - Fill
 - NCC
 - Điều chỉnh cabin
+
+
+# Fill Assistant V1.1
+
+## Cập nhật phần Gợi ý đặt NCC
+
+Đã thêm quy đổi đơn vị đặt NCC theo thùng:
+
+- Aqua / Aquafina: 1 thùng = 28 chai.
+- Các sản phẩm khác: 1 thùng = 24 lon/chai.
+
+Màn hình `Gợi ý đặt NCC` hiển thị:
+- Theo từng máy.
+- Số thùng cần đặt.
+- Quy đổi ra số lon/chai.
+
+Thêm phần `Tổng hợp đặt NCC` để dùng khi gọi hoặc nhắn nhà cung cấp.
+
+Ví dụ:
+```text
+Aquafina: 7 thùng (196 chai)
+Pepsi: 5 thùng (120 lon)
+Boss: 2 thùng (48 lon)
+```
