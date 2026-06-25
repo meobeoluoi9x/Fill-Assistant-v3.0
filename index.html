@@ -22,6 +22,8 @@
     <button class="tab" data-view="fill">Nhập Fill</button>
     <button class="tab" data-view="ncc">Nhập NCC</button>
     <button class="tab" data-view="cabin">Cabin</button>
+    <button class="tab" data-view="adjust">Điều chỉnh</button>
+    <button class="tab" data-view="audit">Kiểm tra</button>
     <button class="tab" data-view="settings">Cài đặt</button>
   </nav>
 
@@ -82,6 +84,54 @@
       <div class="card">
         <h2>Tồn cabin hiện tại</h2>
         <div id="cabinBox"></div>
+      </div>
+    </section>
+
+
+    <section id="adjust" class="view">
+      <div class="card">
+        <h2>Điều chỉnh cabin</h2>
+        <p class="muted">Dùng khi kiểm kê thực tế bị lệch. Không sửa trực tiếp số tồn cabin.</p>
+        <form id="adjustForm">
+          <label>Ngày <input name="date" type="date" required></label>
+          <label>Máy <select name="machine" required></select></label>
+          <label>Sản phẩm <select name="product" required></select></label>
+          <label>Điều chỉnh (+ dư / - thiếu) <input name="qty" type="number" step="1" required></label>
+          <label>Lý do
+            <select name="reason" required>
+              <option>Đếm lại</option>
+              <option>Nhập nhầm</option>
+              <option>Mất hàng</option>
+              <option>Khác</option>
+            </select>
+          </label>
+          <button type="submit">Lưu điều chỉnh</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Lịch sử điều chỉnh gần đây</h2>
+        <div id="adjustHistory"></div>
+      </div>
+    </section>
+
+
+    <section id="audit" class="view">
+      <div class="card">
+        <h2>Kiểm tra dữ liệu</h2>
+        <p class="muted">Phát hiện tồn cabin bị âm hoặc lệch dữ liệu. Cabin âm sẽ hiển thị là 0 nhưng vẫn có cảnh báo chênh lệch.</p>
+        <div id="auditBox"></div>
+      </div>
+
+      <div class="card">
+        <h2>Đối chiếu kiểm kê</h2>
+        <p class="muted">Nhập số tồn cabin thực tế. App sẽ tự tính chênh lệch và tạo điều chỉnh.</p>
+        <form id="stocktakeForm">
+          <label>Ngày <input name="date" type="date" required></label>
+          <label>Máy <select name="machine" required></select></label>
+          <label>Sản phẩm <select name="product" required></select></label>
+          <label>Tồn cabin thực tế <input name="actual" type="number" min="0" step="1" required></label>
+          <button type="submit">Tạo điều chỉnh theo kiểm kê</button>
+        </form>
       </div>
     </section>
 

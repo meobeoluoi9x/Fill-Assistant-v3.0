@@ -126,3 +126,69 @@ Trong lịch sử Fill và lịch sử NCC:
 - Bấm `Xóa` để xóa dòng.
 - Sau khi sửa hoặc xóa có thể bấm `Hoàn tác` trong vài giây.
 
+
+
+## Bản V2 - Điều chỉnh cabin
+
+Đã thêm màn hình `Điều chỉnh`.
+
+Dùng khi tồn cabin thực tế bị lệch so với app.
+
+Công thức mới:
+
+```text
+Tồn cabin hiện tại
+= Tồn cabin ban đầu
++ NCC thực nhận
+- Đã fill vào máy
++ Điều chỉnh cabin
+```
+
+Ví dụ:
+- App tính Pepsi D3 còn 18.
+- Kiểm kê thực tế còn 16.
+- Nhập điều chỉnh: `-2`, lý do `Đếm lại`.
+
+Không sửa trực tiếp số tồn cabin để tránh mất lịch sử.
+
+Có Sửa / Xóa / Hoàn tác cho:
+- Fill
+- NCC
+- Điều chỉnh cabin
+
+
+## Bản V3 - Chặn cabin âm và đối chiếu kiểm kê
+
+### Thay đổi chính
+
+- Cabin không còn hiển thị số âm.
+- Nếu công thức ra âm, app hiển thị 0 và báo lệch.
+- Thêm màn hình `Kiểm tra`.
+- Thêm chức năng `Đối chiếu kiểm kê`.
+
+### Logic
+
+Tồn cabin tính toán vẫn là:
+
+```text
+Tồn ban đầu + NCC thực nhận - Fill + Điều chỉnh
+```
+
+Nếu kết quả nhỏ hơn 0:
+
+```text
+Hiển thị = 0
+Cảnh báo = lệch số lượng
+```
+
+### Cách sửa cabin âm
+
+Vào `Kiểm tra`:
+- Nếu thấy cảnh báo âm, bấm `Tạo điều chỉnh`.
+- Hoặc nhập tồn thực tế ở phần `Đối chiếu kiểm kê`.
+
+Ví dụ:
+- App hiển thị 0 nhưng báo lệch 8.
+- Kiểm kê thực tế còn 3.
+- Nhập tồn thực tế 3.
+- App tự tạo điều chỉnh phù hợp.

@@ -17,6 +17,9 @@ function loadState(){
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); renderAll(); }
 let state = loadState();
+state.fillLogs ||= [];
+state.nccLogs ||= [];
+state.adjustLogs ||= [];
 
 function unique(arr){ return [...new Set(arr)].filter(Boolean); }
 function config(){ return window.FILL_CONFIG; }
@@ -33,9 +36,33 @@ function currentCabin(){
   };
   config().initialCabin.forEach(x => add(x.machine, x.product, x.qty));
   state.nccLogs.forEach(x => add(x.machine, x.product, x.qty));
+  state.adjustLogs.forEach(x => add(x.machine, x.product, x.qty));
   state.fillLogs.forEach(x => add(x.machine, x.product, -x.qty));
   return map;
 }
+
+function displayCabin(){
+  const raw = currentCabin();
+  const display = {};
+  Object.entries(raw).forEach(([k,v]) => display[k] = Math.max(0, Number(v || 0)));
+  return display;
+}
+
+function negativeCabinItems(){
+  const raw = currentCabin();
+  return Object.entries(raw)
+    .filter(([k,v]) => Number(v || 0) < 0)
+    .map(([k,v]) => {
+      const [machine, product] = k.split("||");
+      return {machine, product, raw: Number(v), shortage: Math.abs(Number(v))};
+    });
+}
+
+function getCabinQty(machine, product){
+  const raw = currentCabin()[`${machine}||${product}`] || 0;
+  return Math.max(0, Number(raw));
+}
+
 
 function getRecentFill(product, machine, days){
   const cutoff = new Date();
@@ -75,6 +102,12 @@ function setupForms(){
 
   const nccProduct = $('#nccForm select[name="product"]');
   nccProduct.innerHTML = products.map(p=>`<option>${p}</option>`).join("");
+
+  const adjustProduct = $('#adjustForm select[name="product"]');
+  if(adjustProduct) adjustProduct.innerHTML = products.map(p=>`<option>${p}</option>`).join("");
+
+  const stocktakeProduct = $('#stocktakeForm select[name="product"]');
+  if(stocktakeProduct) stocktakeProduct.innerHTML = products.map(p=>`<option>${p}</option>`).join("");
 
   updateSlotOptions();
   $('#fillForm select[name="machine"]').addEventListener("change", updateSlotOptions);
@@ -129,9 +162,61 @@ function setupForms(){
     saveState();
   });
 
+  $('#adjustForm')?.addEventListener("submit", e=>{
+    e.preventDefault();
+    const f = e.target;
+    const newItem = {
+      id: editing && editing.type === "adjust" ? editing.id : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+      date: f.date.value,
+      machine: f.machine.value,
+      product: f.product.value,
+      qty: Number(f.qty.value),
+      reason: f.reason.value
+    };
+    if(editing && editing.type === "adjust"){
+      state.adjustLogs[editing.index] = newItem;
+      lastAction = {type:"editAdjust", index: editing.index, oldItem: editing.oldItem};
+      editing = null;
+      f.querySelector('button[type="submit"]').textContent = "Lưu điều chỉnh";
+      showToast("Đã cập nhật điều chỉnh.", true);
+    }else{
+      state.adjustLogs.push(newItem);
+      showToast("Đã lưu điều chỉnh cabin.");
+    }
+    f.qty.value = "";
+    saveState();
+  });
+
+  $('#stocktakeForm')?.addEventListener("submit", e=>{
+    e.preventDefault();
+    const f = e.target;
+    const machine = f.machine.value;
+    const product = f.product.value;
+    const actual = Number(f.actual.value);
+    const current = getCabinQty(machine, product);
+    const diff = actual - current;
+    if(diff === 0){
+      showToast("Không có chênh lệch. Không cần điều chỉnh.");
+      return;
+    }
+    const item = {
+      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+      date: f.date.value,
+      machine,
+      product,
+      qty: diff,
+      reason: "Kiểm kê"
+    };
+    state.adjustLogs.push(item);
+    lastAction = {type:"deleteAdjust", index: state.adjustLogs.length - 1, item};
+    f.actual.value = "";
+    saveState();
+    showToast(`Đã tạo điều chỉnh ${diff > 0 ? "+" : ""}${diff} cho ${machine} - ${product}.`, true);
+  });
+
   $('#resetDemo').addEventListener("click", ()=>{
     if(confirm("Xóa toàn bộ dữ liệu fill/NCC đã nhập trên thiết bị này?")){
-      state = { fillLogs: [], nccLogs: [] };
+      state = { fillLogs: [], nccLogs: [], adjustLogs: [] };
       saveState();
     }
   });
@@ -167,7 +252,7 @@ function renderToday(){
 }
 
 function renderOrders(){
-  const cab = currentCabin();
+  const cab = displayCabin();
   let rows = [];
   Object.entries(cab).forEach(([k, qty])=>{
     const [machine, product] = k.split("||");
@@ -200,7 +285,7 @@ function renderSlow(){
 }
 
 function renderCabin(){
-  const cab = currentCabin();
+  const cab = displayCabin();
   let grouped = {};
   Object.entries(cab).forEach(([k, qty])=>{
     const [machine, product] = k.split("||");
@@ -210,8 +295,10 @@ function renderCabin(){
   $('#cabinBox').innerHTML = Object.keys(grouped).sort().map(machine=>`
     <div class="machineTitle">${machine}</div>
     ${grouped[machine].sort((a,b)=>a.product.localeCompare(b.product,'vi')).map(x=>{
-      const cls = x.qty < 12 ? "red" : x.qty < productInfo(x.product).pack ? "yellow" : "green";
-      return `<div class="row ${cls}"><span>${x.product}</span><b>${x.qty}</b></div>`;
+      const raw = currentCabin()[`${machine}||${x.product}`] || 0;
+      const cls = raw < 0 ? "red" : x.qty < 12 ? "red" : x.qty < productInfo(x.product).pack ? "yellow" : "green";
+      const warn = raw < 0 ? `<br><span class="small">⚠ Lệch ${Math.abs(raw)} lon/chai</span>` : "";
+      return `<div class="row ${cls}"><span>${x.product}${warn}</span><b>${x.qty}</b></div>`;
     }).join("")}
   `).join("");
 }
@@ -249,6 +336,12 @@ function undoLastAction(){
   }
   if(lastAction.type === "editNcc"){
     state.nccLogs[lastAction.index] = lastAction.oldItem;
+  }
+  if(lastAction.type === "deleteAdjust"){
+    state.adjustLogs.splice(lastAction.index, 0, lastAction.item);
+  }
+  if(lastAction.type === "editAdjust"){
+    state.adjustLogs[lastAction.index] = lastAction.oldItem;
   }
   lastAction = null;
   saveState();
@@ -316,6 +409,35 @@ function deleteNcc(id){
   showToast("Đã xóa dòng NCC.", true);
 }
 
+
+function editAdjust(id){
+  const idx = state.adjustLogs.findIndex(x => x.id === id);
+  if(idx < 0) return;
+  const item = state.adjustLogs[idx];
+  editing = {type:"adjust", id, index:idx, oldItem:{...item}};
+  const f = document.getElementById("adjustForm");
+  f.date.value = item.date;
+  f.machine.value = item.machine;
+  f.product.value = item.product;
+  f.qty.value = item.qty;
+  f.reason.value = item.reason || "Đếm lại";
+  const btn = f.querySelector('button[type="submit"]');
+  btn.textContent = "Cập nhật điều chỉnh";
+  document.querySelector('[data-view="adjust"]').click();
+  showToast("Đang sửa dòng Điều chỉnh. Bấm Cập nhật để lưu.");
+}
+
+function deleteAdjust(id){
+  const idx = state.adjustLogs.findIndex(x => x.id === id);
+  if(idx < 0) return;
+  const item = state.adjustLogs[idx];
+  if(!confirm(`Xóa điều chỉnh ${item.machine} - ${item.product} - ${item.qty}?`)) return;
+  state.adjustLogs.splice(idx,1);
+  lastAction = {type:"deleteAdjust", index:idx, item};
+  saveState();
+  showToast("Đã xóa dòng Điều chỉnh.", true);
+}
+
 function renderHistory(){
   const f = [...state.fillLogs].reverse().slice(0,20);
   $('#fillHistory').innerHTML = f.length ? f.map(x=>`
@@ -340,6 +462,55 @@ function renderHistory(){
       </span>
     </div>
   `).join("") : `<p class="muted">Chưa có dữ liệu NCC.</p>`;
+
+  const a = [...state.adjustLogs].reverse().slice(0,20);
+  const box = document.getElementById("adjustHistory");
+  if(box){
+    box.innerHTML = a.length ? a.map(x=>`
+      <div class="row logrow">
+        <span>${x.date}<br><span class="small">${x.machine} - ${x.product} - ${x.reason || ""}</span></span>
+        <b>${x.qty > 0 ? "+" + x.qty : x.qty}</b>
+        <span class="actions">
+          <button class="mini" onclick="editAdjust('${x.id}')">Sửa</button>
+          <button class="mini danger" onclick="deleteAdjust('${x.id}')">Xóa</button>
+        </span>
+      </div>
+    `).join("") : `<p class="muted">Chưa có dữ liệu điều chỉnh.</p>`;
+  }
+}
+
+
+function renderAudit(){
+  const box = document.getElementById("auditBox");
+  if(!box) return;
+  const negatives = negativeCabinItems();
+  if(!negatives.length){
+    box.innerHTML = `<div class="pill green"><b>Dữ liệu ổn</b><div>Không có cabin nào bị âm.</div></div>`;
+    return;
+  }
+  box.innerHTML = negatives.map(x=>`
+    <div class="pill red">
+      <b>${x.machine} - ${x.product}</b>
+      <div>Tồn tính toán: ${x.raw} | Đang hiển thị: 0 | Lệch: ${x.shortage}</div>
+      <button class="mini" onclick="quickFixNegative('${x.machine}','${x.product}',${x.shortage})">Tạo điều chỉnh +${x.shortage}</button>
+    </div>
+  `).join("");
+}
+
+function quickFixNegative(machine, product, qty){
+  if(!confirm(`Tạo điều chỉnh +${qty} cho ${machine} - ${product}?`)) return;
+  const item = {
+    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    date: todayISO(),
+    machine,
+    product,
+    qty: Number(qty),
+    reason: "Sửa cabin âm"
+  };
+  state.adjustLogs.push(item);
+  lastAction = {type:"deleteAdjust", index: state.adjustLogs.length - 1, item};
+  saveState();
+  showToast(`Đã tạo điều chỉnh +${qty}.`, true);
 }
 
 function renderAll(){
@@ -348,6 +519,7 @@ function renderAll(){
   renderSlow();
   renderCabin();
   renderHistory();
+  renderAudit();
 }
 
 function exportJSON(){
