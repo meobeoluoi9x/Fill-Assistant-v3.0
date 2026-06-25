@@ -1,281 +1,44 @@
-# Fill Assistant PWA - bản đã nhập dữ liệu ngày 25
+# Fill Assistant V2.0
 
-Bản này đã nhúng dữ liệu từ file Excel thực tế bạn gửi:
+Bản dựng lại sạch hơn, giữ logic nghiệp vụ đã chốt.
 
-- Cấu hình máy/slot/sản phẩm
-- Tồn cabin ban đầu
-- Nhật ký fill ngày 25
-- Nhật ký NCC thực nhận ngày 25
+## Dữ liệu đã giữ lại
+- Cấu hình máy / slot / sản phẩm từ bản trước.
+- Tồn cabin ban đầu.
+- Dữ liệu Fill đã nhập.
+- Dữ liệu NCC đã nhập.
+- Dữ liệu điều chỉnh nếu có.
 
-Khi mở app lần đầu, dữ liệu ngày 25 sẽ có sẵn. Nếu trước đó bạn đã mở bản cũ trên cùng trình duyệt, hãy vào Cài đặt trong app và bấm Reset để nạp lại dữ liệu nhúng mới.
+## Logic chính
 
-# Fill Assistant PWA tạm thời
+### Chỉ nhập 2 nghiệp vụ chính
+1. Fill: ngày, máy, slot, số lượng đã fill.
+2. NCC: ngày, máy, sản phẩm, số lượng thực nhận.
 
-Bản này chạy được ngay, không cần server, không cần domain, không cần Google Sheets.
-
-## Cách chạy thử trên máy tính
-
-1. Giải nén file ZIP.
-2. Mở thư mục `fill_assistant_pwa_v0`.
-3. Chạy bằng một local server.
-
-Nếu có Python:
-```bash
-python -m http.server 8080
-```
-
-Sau đó mở:
-```text
-http://localhost:8080
-```
-
-Không nên mở trực tiếp bằng cách double click `index.html` vì PWA/service worker cần chạy qua http/https.
-
-## Cách đưa lên điện thoại miễn phí
-
-Cách dễ nhất: dùng GitHub Pages hoặc Netlify.
-
-### GitHub Pages
-1. Tạo tài khoản GitHub.
-2. Tạo repository mới, ví dụ `fill-assistant`.
-3. Upload toàn bộ file trong thư mục này lên repository.
-4. Vào Settings → Pages.
-5. Source chọn `Deploy from a branch`.
-6. Branch chọn `main`, folder `/root`.
-7. Lưu lại.
-8. GitHub sẽ cho link dạng:
-```text
-https://ten-cua-ban.github.io/fill-assistant/
-```
-
-### Cài lên Android
-1. Mở link bằng Chrome.
-2. Bấm menu 3 chấm.
-3. Chọn `Add to Home screen` hoặc `Install app`.
-
-### Cài lên iPhone
-1. Mở link bằng Safari.
-2. Bấm nút Share.
-3. Chọn `Add to Home Screen`.
-
-## Cách dùng
-
-Chỉ nhập ở 2 màn hình:
-
-### 1. Nhập Fill
-- Ngày
-- Máy
-- Slot
-- Số lượng đã fill
-
-### 2. Nhập NCC
-- Ngày
-- Máy
-- Sản phẩm
-- Số lượng thực nhận
-
-## Công thức logic
-
-Tồn cabin hiện tại:
-```text
-Tồn cabin ban đầu + NCC thực nhận - Đã fill vào máy
-```
-
-Không quản lý số đã đặt, vì NCC có thể giao thiếu.
-
-## Chỉnh dữ liệu thật
-
-Mở file:
-```text
-data.js
-```
-
-Sửa:
-- Danh sách máy
-- Slot
-- Sản phẩm
-- Sức chứa
-- Tồn cabin ban đầu
-
-## Sao lưu
-
-Trong app có nút:
-- Xuất dữ liệu JSON
-- Nhập dữ liệu JSON
-
-Nên xuất backup cuối ngày để tránh mất dữ liệu.
-
-
-## Cập nhật bản này
-
-### Quy tắc đặt NCC mới
-
-- Sản phẩm thường:
-  - Tồn cabin > 12: gợi ý đặt 1 quy cách.
-  - Tồn cabin <= 12: gợi ý đặt 2 quy cách.
-- Aqua / Aquafina:
-  - Tồn cabin >= 28: gợi ý đặt 2 quy cách.
-  - Tồn cabin < 28: gợi ý đặt 3 quy cách.
-
-Lưu ý: "Gợi ý đặt NCC" không tự cộng vào tồn. Chỉ số lượng nhập ở màn hình "Nhập NCC thực nhận" mới cộng vào tồn cabin.
-
-### Sửa / Xóa / Hoàn tác
-
-Trong lịch sử Fill và lịch sử NCC:
-- Bấm `Sửa` để đưa dữ liệu lên form và cập nhật.
-- Bấm `Xóa` để xóa dòng.
-- Sau khi sửa hoặc xóa có thể bấm `Hoàn tác` trong vài giây.
-
-
-
-## Bản V2 - Điều chỉnh cabin
-
-Đã thêm màn hình `Điều chỉnh`.
-
-Dùng khi tồn cabin thực tế bị lệch so với app.
-
-Công thức mới:
-
-```text
-Tồn cabin hiện tại
-= Tồn cabin ban đầu
-+ NCC thực nhận
-- Đã fill vào máy
-+ Điều chỉnh cabin
-```
-
-Ví dụ:
-- App tính Pepsi D3 còn 18.
-- Kiểm kê thực tế còn 16.
-- Nhập điều chỉnh: `-2`, lý do `Đếm lại`.
-
-Không sửa trực tiếp số tồn cabin để tránh mất lịch sử.
-
-Có Sửa / Xóa / Hoàn tác cho:
-- Fill
-- NCC
-- Điều chỉnh cabin
-
-
-## Bản V3 - Chặn cabin âm và đối chiếu kiểm kê
-
-### Thay đổi chính
-
-- Cabin không còn hiển thị số âm.
-- Nếu công thức ra âm, app hiển thị 0 và báo lệch.
-- Thêm màn hình `Kiểm tra`.
-- Thêm chức năng `Đối chiếu kiểm kê`.
-
-### Logic
-
-Tồn cabin tính toán vẫn là:
-
-```text
-Tồn ban đầu + NCC thực nhận - Fill + Điều chỉnh
-```
-
-Nếu kết quả nhỏ hơn 0:
-
-```text
-Hiển thị = 0
-Cảnh báo = lệch số lượng
-```
-
-### Cách sửa cabin âm
-
-Vào `Kiểm tra`:
-- Nếu thấy cảnh báo âm, bấm `Tạo điều chỉnh`.
-- Hoặc nhập tồn thực tế ở phần `Đối chiếu kiểm kê`.
-
-Ví dụ:
-- App hiển thị 0 nhưng báo lệch 8.
-- Kiểm kê thực tế còn 3.
-- Nhập tồn thực tế 3.
-- App tự tạo điều chỉnh phù hợp.
-
-
-# Fill Assistant V1.0
-
-Bản này tổng hợp các logic đã chốt:
-
-## Nhập liệu chính
-
-- Fill: Ngày, Máy, Slot, số lượng đã fill.
-- NCC: Ngày, Máy, Sản phẩm, số lượng thực nhận.
-
-## Không nhập
-
-- Không nhập số đã đặt NCC.
-- Không nhập số đã bán.
-- Không cần biết slot còn bao nhiêu trước khi fill.
-
-## Cabin
-
+### Cabin
 ```text
 Tồn cabin = Tồn ban đầu + NCC thực nhận - Fill + Điều chỉnh
 ```
 
-Nếu cabin âm:
-- App hiển thị 0.
-- App báo lệch để kiểm tra.
+### Cabin âm
+- Không hiển thị số âm.
+- Hiển thị 0 và báo lệch trong tab Kiểm tra.
 
-## Điều chỉnh cabin
-
-Không sửa trực tiếp số tồn. Dùng Điều chỉnh:
-- Dư: số dương.
-- Thiếu: số âm.
-- Có lý do điều chỉnh.
-
-## Gợi ý đặt NCC
-
+### Đặt NCC
 Sản phẩm thường:
-- Tồn cabin > 12: gợi ý 1 quy cách = 24.
-- Tồn cabin <= 12: gợi ý 2 quy cách = 48.
+- Cabin > 12: đặt 1 thùng = 24.
+- Cabin <= 12: đặt 2 thùng = 48.
 
 Aqua/Aquafina:
-- Tồn cabin >= 28: gợi ý 2 quy cách = 56.
-- Tồn cabin < 28: gợi ý 3 quy cách = 84.
+- Cabin >= 28: đặt 2 thùng = 56.
+- Cabin < 28: đặt 3 thùng = 84.
 
-## Nút nhập nhanh
+## Cập nhật lên GitHub Pages
+1. Giải nén ZIP.
+2. Upload toàn bộ file trong thư mục lên repository GitHub.
+3. Ghi đè file cũ.
+4. Đợi GitHub Pages deploy lại.
+5. Trên điện thoại, nếu vẫn thấy bản cũ: mở Chrome/Safari refresh vài lần hoặc xóa cache trang.
 
-Fill/NCC:
-```text
-+1 +2 +5 +10 +12 +24 +28 Xóa
-```
-
-Điều chỉnh:
-```text
-Thiếu: -1 -2 -5 -10 -12 -24 -28
-Dư:    +1 +2 +5 +10 +12 +24 +28
-```
-
-## Lịch sử
-
-Có Sửa / Xóa / Hoàn tác cho:
-- Fill
-- NCC
-- Điều chỉnh cabin
-
-
-# Fill Assistant V1.1
-
-## Cập nhật phần Gợi ý đặt NCC
-
-Đã thêm quy đổi đơn vị đặt NCC theo thùng:
-
-- Aqua / Aquafina: 1 thùng = 28 chai.
-- Các sản phẩm khác: 1 thùng = 24 lon/chai.
-
-Màn hình `Gợi ý đặt NCC` hiển thị:
-- Theo từng máy.
-- Số thùng cần đặt.
-- Quy đổi ra số lon/chai.
-
-Thêm phần `Tổng hợp đặt NCC` để dùng khi gọi hoặc nhắn nhà cung cấp.
-
-Ví dụ:
-```text
-Aquafina: 7 thùng (196 chai)
-Pepsi: 5 thùng (120 lon)
-Boss: 2 thùng (48 lon)
-```
+## Sao lưu
+Nên vào tab Sao lưu → Xuất dữ liệu JSON cuối ngày.
