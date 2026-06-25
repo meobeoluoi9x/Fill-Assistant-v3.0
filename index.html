@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Fill Assistant</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Fill Assistant</h1>
+      <p>Trợ lý fill máy bán hàng</p>
+    </div>
+    <button id="installBtn" class="ghost hidden">Cài app</button>
+  </header>
+
+  <nav>
+    <button class="tab active" data-view="today">Hôm nay</button>
+    <button class="tab" data-view="fill">Nhập Fill</button>
+    <button class="tab" data-view="ncc">Nhập NCC</button>
+    <button class="tab" data-view="cabin">Cabin</button>
+    <button class="tab" data-view="settings">Cài đặt</button>
+  </nav>
+
+  <main>
+    <section id="today" class="view active">
+      <div class="card hero">
+        <h2>Việc hôm nay</h2>
+        <div id="routeBox"></div>
+      </div>
+
+      <div class="card">
+        <h2>Gợi ý đặt NCC</h2>
+        <div id="orderBox"></div>
+      </div>
+
+      <div class="card">
+        <h2>Hàng bán chậm / đang học</h2>
+        <div id="slowBox"></div>
+      </div>
+    </section>
+
+    <section id="fill" class="view">
+      <div class="card">
+        <h2>Nhập số lượng đã fill</h2>
+        <form id="fillForm">
+          <label>Ngày <input name="date" type="date" required></label>
+          <label>Máy <select name="machine" required></select></label>
+          <label>Slot <select name="slot" required></select></label>
+          <label>Sản phẩm <input name="product" readonly></label>
+          <label>Số lượng đã fill <input name="qty" type="number" min="0" step="1" required></label>
+          <button type="submit">Lưu fill</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Lịch sử fill gần đây</h2>
+        <div id="fillHistory"></div>
+      </div>
+    </section>
+
+    <section id="ncc" class="view">
+      <div class="card">
+        <h2>Nhập hàng NCC thực nhận</h2>
+        <form id="nccForm">
+          <label>Ngày <input name="date" type="date" required></label>
+          <label>Máy <select name="machine" required></select></label>
+          <label>Sản phẩm <select name="product" required></select></label>
+          <label>Số lượng thực nhận <input name="qty" type="number" min="0" step="1" required></label>
+          <button type="submit">Lưu NCC</button>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Lịch sử NCC gần đây</h2>
+        <div id="nccHistory"></div>
+      </div>
+    </section>
+
+    <section id="cabin" class="view">
+      <div class="card">
+        <h2>Tồn cabin hiện tại</h2>
+        <div id="cabinBox"></div>
+      </div>
+    </section>
+
+    <section id="settings" class="view">
+      <div class="card">
+        <h2>Khởi tạo nhanh</h2>
+        <p class="muted">Bản tạm thời đã có sẵn 7 máy. Bạn có thể chỉnh dữ liệu trong file <b>data.js</b> trước khi dùng thật.</p>
+        <button id="resetDemo" class="danger">Reset toàn bộ dữ liệu trên máy này</button>
+      </div>
+
+      <div class="card">
+        <h2>Sao lưu / phục hồi</h2>
+        <button id="exportBtn">Xuất dữ liệu JSON</button>
+        <label class="fileLabel">Nhập dữ liệu JSON
+          <input id="importInput" type="file" accept="application/json">
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>Ghi chú vận hành</h2>
+        <ul class="notes">
+          <li>Chỉ nhập <b>Fill</b> và <b>NCC thực nhận</b>.</li>
+          <li>Không nhập số đã đặt, vì NCC có thể giao thiếu.</li>
+          <li>Tồn cabin = Tồn ban đầu + NCC thực nhận - Đã fill.</li>
+          <li>Aqua luôn ưu tiên tồn tối thiểu 2 quy cách.</li>
+        </ul>
+      </div>
+    </section>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
