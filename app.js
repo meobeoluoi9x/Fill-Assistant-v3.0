@@ -13,7 +13,7 @@ function todayISO(){
 function loadState(){
   const saved = localStorage.getItem(KEY);
   if(saved) return JSON.parse(saved);
-  return { fillLogs: [], nccLogs: [] };
+  return window.FILL_INITIAL_STATE || { fillLogs: [], nccLogs: [] };
 }
 function saveState(){ localStorage.setItem(KEY, JSON.stringify(state)); renderAll(); }
 let state = loadState();

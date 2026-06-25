@@ -1,3 +1,14 @@
+# Fill Assistant PWA - bản đã nhập dữ liệu ngày 25
+
+Bản này đã nhúng dữ liệu từ file Excel thực tế bạn gửi:
+
+- Cấu hình máy/slot/sản phẩm
+- Tồn cabin ban đầu
+- Nhật ký fill ngày 25
+- Nhật ký NCC thực nhận ngày 25
+
+Khi mở app lần đầu, dữ liệu ngày 25 sẽ có sẵn. Nếu trước đó bạn đã mở bản cũ trên cùng trình duyệt, hãy vào Cài đặt trong app và bấm Reset để nạp lại dữ liệu nhúng mới.
+
 # Fill Assistant PWA tạm thời
 
 Bản này chạy được ngay, không cần server, không cần domain, không cần Google Sheets.
