@@ -7,3 +7,35 @@ button.mini.danger{background:#dc2626}
 #toast.show{display:flex;align-items:center;justify-content:space-between;gap:10px}
 #toast button{background:#22c55e;color:#052e16;padding:8px 10px;border-radius:10px}
 @media(max-width:520px){.logrow{display:grid;grid-template-columns:1fr auto;gap:8px}.actions{grid-column:1 / -1;justify-content:flex-start}}
+
+
+/* Fill Assistant V1.0 UI polish */
+.summaryGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.summaryCard{background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:12px}
+.summaryCard span{display:block;color:#64748b;font-size:12px;font-weight:800}
+.summaryCard b{display:block;font-size:26px;margin-top:4px;text-align:right}
+
+.quickPad,.adjustPad{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:-4px}
+.adjustPad{grid-template-columns:repeat(4,1fr)}
+.padTitle{grid-column:1/-1;font-weight:900;color:#334155;margin-top:4px}
+.quickBtn{background:#0f172a;color:white;border-radius:14px;padding:13px 8px;font-size:16px}
+.quickBtn.clear{background:#64748b}
+.quickBtn.danger{background:#dc2626}
+input[name="qty"], input[name="actual"]{font-size:28px;font-weight:900;text-align:center}
+
+.qtyRow{display:grid;grid-template-columns:1fr 86px;align-items:center}
+.qtyNum{text-align:right;font-variant-numeric:tabular-nums;font-size:19px}
+.orderLine{display:grid;grid-template-columns:1fr 86px;align-items:center;gap:10px}
+.orderLine small{display:block;color:#64748b;margin-top:4px}
+.orderLine strong{text-align:right;font-size:22px;font-variant-numeric:tabular-nums}
+
+.row b{font-variant-numeric:tabular-nums}
+.machineTitle{position:sticky;top:122px;z-index:4}
+
+@media(max-width:520px){
+  .quickPad,.adjustPad{grid-template-columns:repeat(4,1fr)}
+  .quickBtn{padding:12px 4px;font-size:15px}
+  .summaryGrid{grid-template-columns:repeat(2,1fr)}
+  .qtyRow{grid-template-columns:1fr 72px}
+  .orderLine{grid-template-columns:1fr 72px}
+}

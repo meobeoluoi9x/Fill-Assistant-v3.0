@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
-  <title>Fill Assistant</title>
+  <title>Fill Assistant V1.0</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,7 +12,7 @@
   <header>
     <div>
       <h1>Fill Assistant</h1>
-      <p>Trợ lý fill máy bán hàng</p>
+      <p>V1.0 - Trợ lý vận hành cabin</p>
     </div>
     <button id="installBtn" class="ghost hidden">Cài app</button>
   </header>
@@ -34,6 +34,12 @@
         <div id="routeBox"></div>
       </div>
 
+
+      <div class="card">
+        <h2>Tổng quan nhanh</h2>
+        <div id="summaryBox" class="summaryGrid"></div>
+      </div>
+
       <div class="card">
         <h2>Gợi ý đặt NCC</h2>
         <div id="orderBox"></div>
@@ -53,7 +59,8 @@
           <label>Máy <select name="machine" required></select></label>
           <label>Slot <select name="slot" required></select></label>
           <label>Sản phẩm <input name="product" readonly></label>
-          <label>Số lượng đã fill <input name="qty" type="number" min="0" step="1" required></label>
+          <label>Số lượng đã fill <input name="qty" type="number" min="0" step="1" inputmode="numeric" required></label>
+          <div class="quickPad" data-target="fillForm"></div>
           <button type="submit">Lưu fill</button>
         </form>
       </div>
@@ -70,7 +77,8 @@
           <label>Ngày <input name="date" type="date" required></label>
           <label>Máy <select name="machine" required></select></label>
           <label>Sản phẩm <select name="product" required></select></label>
-          <label>Số lượng thực nhận <input name="qty" type="number" min="0" step="1" required></label>
+          <label>Số lượng thực nhận <input name="qty" type="number" min="0" step="1" inputmode="numeric" required></label>
+          <div class="quickPad" data-target="nccForm"></div>
           <button type="submit">Lưu NCC</button>
         </form>
       </div>
@@ -96,7 +104,8 @@
           <label>Ngày <input name="date" type="date" required></label>
           <label>Máy <select name="machine" required></select></label>
           <label>Sản phẩm <select name="product" required></select></label>
-          <label>Điều chỉnh (+ dư / - thiếu) <input name="qty" type="number" step="1" required></label>
+          <label>Điều chỉnh (+ dư / - thiếu) <input name="qty" type="number" step="1" inputmode="numeric" required></label>
+          <div class="adjustPad" data-target="adjustForm"></div>
           <label>Lý do
             <select name="reason" required>
               <option>Đếm lại</option>

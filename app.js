@@ -86,6 +86,72 @@ function suggestOrder(qty, product){
   return qty > 12 ? info.pack : info.pack * 2;
 }
 
+
+function setupQuickPads(){
+  document.querySelectorAll(".quickPad").forEach(pad=>{
+    const target = pad.dataset.target;
+    pad.innerHTML = [1,2,5,10,12,24,28].map(n=>`<button type="button" class="quickBtn" data-val="${n}">+${n}</button>`).join("") + `<button type="button" class="quickBtn clear" data-clear="1">Xóa</button>`;
+    pad.addEventListener("click", e=>{
+      const btn = e.target.closest("button");
+      if(!btn) return;
+      const input = document.querySelector(`#${target} input[name="qty"]`);
+      if(!input) return;
+      if(btn.dataset.clear){
+        input.value = "";
+      }else{
+        input.value = Number(input.value || 0) + Number(btn.dataset.val || 0);
+      }
+      input.focus();
+    });
+  });
+
+  document.querySelectorAll(".adjustPad").forEach(pad=>{
+    const target = pad.dataset.target;
+    pad.innerHTML = `
+      <div class="padTitle">Thiếu</div>
+      ${[1,2,5,10,12,24,28].map(n=>`<button type="button" class="quickBtn danger" data-val="-${n}">-${n}</button>`).join("")}
+      <div class="padTitle">Dư</div>
+      ${[1,2,5,10,12,24,28].map(n=>`<button type="button" class="quickBtn" data-val="${n}">+${n}</button>`).join("")}
+      <button type="button" class="quickBtn clear" data-clear="1">Xóa</button>
+    `;
+    pad.addEventListener("click", e=>{
+      const btn = e.target.closest("button");
+      if(!btn) return;
+      const input = document.querySelector(`#${target} input[name="qty"]`);
+      if(!input) return;
+      if(btn.dataset.clear){
+        input.value = "";
+      }else{
+        input.value = Number(input.value || 0) + Number(btn.dataset.val || 0);
+      }
+      input.focus();
+    });
+  });
+}
+
+function renderSummary(){
+  const box = document.getElementById("summaryBox");
+  if(!box) return;
+  const negatives = negativeCabinItems().length;
+  const cab = displayCabin();
+  let low = 0;
+  Object.values(cab).forEach(q=>{ if(Number(q) <= 12) low++; });
+  let orderCount = 0;
+  Object.entries(cab).forEach(([k, qty])=>{
+    const product = k.split("||")[1];
+    if(suggestOrder(qty, product) > 0) orderCount++;
+  });
+  const fillCount = state.fillLogs.length;
+  const nccCount = state.nccLogs.length;
+  box.innerHTML = `
+    <div class="summaryCard"><span>Cabin cần chú ý</span><b>${low}</b></div>
+    <div class="summaryCard"><span>Gợi ý NCC</span><b>${orderCount}</b></div>
+    <div class="summaryCard"><span>Lỗi dữ liệu</span><b>${negatives}</b></div>
+    <div class="summaryCard"><span>Fill đã ghi</span><b>${fillCount}</b></div>
+    <div class="summaryCard"><span>NCC đã ghi</span><b>${nccCount}</b></div>
+  `;
+}
+
 function setupForms(){
   const machineNames = config().machines.map(m=>m.name);
   const products = unique([
@@ -263,9 +329,9 @@ function renderOrders(){
   });
   rows.sort((a,b)=>b.order-a.order);
   $('#orderBox').innerHTML = rows.length ? rows.map(r=>`
-    <div class="pill red">
-      <b>${r.machine} - ${r.product}</b>
-      <div>Tồn cabin: ${r.qty} | Gợi ý NCC: ${r.order} lon/chai</div>
+    <div class="pill red orderLine">
+      <span><b>${r.machine} - ${r.product}</b><small>Tồn cabin: ${r.qty}</small></span>
+      <strong>${r.order}</strong>
     </div>
   `).join("") : `<p class="muted">Chưa có sản phẩm nào cần đặt theo ngưỡng hiện tại.</p>`;
 }
@@ -298,7 +364,7 @@ function renderCabin(){
       const raw = currentCabin()[`${machine}||${x.product}`] || 0;
       const cls = raw < 0 ? "red" : x.qty < 12 ? "red" : x.qty < productInfo(x.product).pack ? "yellow" : "green";
       const warn = raw < 0 ? `<br><span class="small">⚠ Lệch ${Math.abs(raw)} lon/chai</span>` : "";
-      return `<div class="row ${cls}"><span>${x.product}${warn}</span><b>${x.qty}</b></div>`;
+      return `<div class="row ${cls} qtyRow"><span>${x.product}${warn}</span><b class="qtyNum">${x.qty}</b></div>`;
     }).join("")}
   `).join("");
 }
@@ -520,6 +586,7 @@ function renderAll(){
   renderCabin();
   renderHistory();
   renderAudit();
+  renderSummary();
 }
 
 function exportJSON(){
@@ -577,4 +644,5 @@ if("serviceWorker" in navigator){
 
 setupTabs();
 setupForms();
+setupQuickPads();
 renderAll();

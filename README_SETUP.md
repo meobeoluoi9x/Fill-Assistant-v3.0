@@ -192,3 +192,66 @@ Ví dụ:
 - Kiểm kê thực tế còn 3.
 - Nhập tồn thực tế 3.
 - App tự tạo điều chỉnh phù hợp.
+
+
+# Fill Assistant V1.0
+
+Bản này tổng hợp các logic đã chốt:
+
+## Nhập liệu chính
+
+- Fill: Ngày, Máy, Slot, số lượng đã fill.
+- NCC: Ngày, Máy, Sản phẩm, số lượng thực nhận.
+
+## Không nhập
+
+- Không nhập số đã đặt NCC.
+- Không nhập số đã bán.
+- Không cần biết slot còn bao nhiêu trước khi fill.
+
+## Cabin
+
+```text
+Tồn cabin = Tồn ban đầu + NCC thực nhận - Fill + Điều chỉnh
+```
+
+Nếu cabin âm:
+- App hiển thị 0.
+- App báo lệch để kiểm tra.
+
+## Điều chỉnh cabin
+
+Không sửa trực tiếp số tồn. Dùng Điều chỉnh:
+- Dư: số dương.
+- Thiếu: số âm.
+- Có lý do điều chỉnh.
+
+## Gợi ý đặt NCC
+
+Sản phẩm thường:
+- Tồn cabin > 12: gợi ý 1 quy cách = 24.
+- Tồn cabin <= 12: gợi ý 2 quy cách = 48.
+
+Aqua/Aquafina:
+- Tồn cabin >= 28: gợi ý 2 quy cách = 56.
+- Tồn cabin < 28: gợi ý 3 quy cách = 84.
+
+## Nút nhập nhanh
+
+Fill/NCC:
+```text
++1 +2 +5 +10 +12 +24 +28 Xóa
+```
+
+Điều chỉnh:
+```text
+Thiếu: -1 -2 -5 -10 -12 -24 -28
+Dư:    +1 +2 +5 +10 +12 +24 +28
+```
+
+## Lịch sử
+
+Có Sửa / Xóa / Hoàn tác cho:
+- Fill
+- NCC
+- Điều chỉnh cabin
