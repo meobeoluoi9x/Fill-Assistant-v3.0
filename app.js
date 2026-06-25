@@ -47,14 +47,16 @@ function getRecentFill(product, machine, days){
 
 function suggestOrder(qty, product){
   const info = productInfo(product);
-  const target = info.pack * info.minPacks;
-  if(product.toLowerCase().includes("aqua")){
-    if(qty < target) return target - qty;
-    return 0;
+  const name = String(product || "").toLowerCase();
+
+  // Quy tắc đã chốt:
+  // - Sản phẩm thường: tồn cabin > 12 đặt 1 quy cách, <= 12 đặt 2 quy cách.
+  // - Aqua/Aquafina: tồn cabin >= 28 đặt 2 quy cách, < 28 đặt 3 quy cách.
+  // Lưu ý: đây là số lượng gợi ý đặt NCC, không tự cộng vào tồn cabin.
+  if(name.includes("aqua")){
+    return qty >= 28 ? info.pack * 2 : info.pack * 3;
   }
-  if(qty < 12) return info.pack;
-  if(qty >= 12 && qty < target) return info.pack * 2;
-  return 0;
+  return qty > 12 ? info.pack : info.pack * 2;
 }
 
 function setupForms(){
@@ -81,32 +83,50 @@ function setupForms(){
   $('#fillForm').addEventListener("submit", e=>{
     e.preventDefault();
     const f = e.target;
-    state.fillLogs.push({
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    const newItem = {
+      id: editing && editing.type === "fill" ? editing.id : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
       date: f.date.value,
       machine: f.machine.value,
       slot: Number(f.slot.value),
       product: f.product.value,
       qty: Number(f.qty.value)
-    });
+    };
+    if(editing && editing.type === "fill"){
+      state.fillLogs[editing.index] = newItem;
+      lastAction = {type:"editFill", index: editing.index, oldItem: editing.oldItem};
+      editing = null;
+      f.querySelector('button[type="submit"]').textContent = "Lưu fill";
+      showToast("Đã cập nhật Fill.", true);
+    }else{
+      state.fillLogs.push(newItem);
+      showToast("Đã lưu Fill.");
+    }
     f.qty.value = "";
     saveState();
-    alert("Đã lưu fill.");
   });
 
   $('#nccForm').addEventListener("submit", e=>{
     e.preventDefault();
     const f = e.target;
-    state.nccLogs.push({
-      id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+    const newItem = {
+      id: editing && editing.type === "ncc" ? editing.id : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
       date: f.date.value,
       machine: f.machine.value,
       product: f.product.value,
       qty: Number(f.qty.value)
-    });
+    };
+    if(editing && editing.type === "ncc"){
+      state.nccLogs[editing.index] = newItem;
+      lastAction = {type:"editNcc", index: editing.index, oldItem: editing.oldItem};
+      editing = null;
+      f.querySelector('button[type="submit"]').textContent = "Lưu NCC";
+      showToast("Đã cập nhật NCC.", true);
+    }else{
+      state.nccLogs.push(newItem);
+      showToast("Đã lưu NCC thực nhận.");
+    }
     f.qty.value = "";
     saveState();
-    alert("Đã lưu NCC thực nhận.");
   });
 
   $('#resetDemo').addEventListener("click", ()=>{
@@ -196,15 +216,129 @@ function renderCabin(){
   `).join("");
 }
 
+
+let lastAction = null;
+let editing = null;
+
+function showToast(message, undoable=false){
+  let toast = document.getElementById("toast");
+  if(!toast){
+    toast = document.createElement("div");
+    toast.id = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = `${message}${undoable ? ' <button id="undoBtn">Hoàn tác</button>' : ''}`;
+  toast.className = "show";
+  if(undoable){
+    document.getElementById("undoBtn").onclick = undoLastAction;
+  }
+  clearTimeout(window.toastTimer);
+  window.toastTimer = setTimeout(()=>toast.className="", 5000);
+}
+
+function undoLastAction(){
+  if(!lastAction) return;
+  if(lastAction.type === "deleteFill"){
+    state.fillLogs.splice(lastAction.index, 0, lastAction.item);
+  }
+  if(lastAction.type === "deleteNcc"){
+    state.nccLogs.splice(lastAction.index, 0, lastAction.item);
+  }
+  if(lastAction.type === "editFill"){
+    state.fillLogs[lastAction.index] = lastAction.oldItem;
+  }
+  if(lastAction.type === "editNcc"){
+    state.nccLogs[lastAction.index] = lastAction.oldItem;
+  }
+  lastAction = null;
+  saveState();
+  showToast("Đã hoàn tác.");
+}
+
+function findLogIndex(type, id){
+  const arr = type === "fill" ? state.fillLogs : state.nccLogs;
+  return arr.findIndex(x => x.id === id);
+}
+
+function editFill(id){
+  const idx = findLogIndex("fill", id);
+  if(idx < 0) return;
+  const item = state.fillLogs[idx];
+  editing = {type:"fill", id, index:idx, oldItem:{...item}};
+  const f = document.getElementById("fillForm");
+  f.date.value = item.date;
+  f.machine.value = item.machine;
+  updateSlotOptions();
+  f.slot.value = String(item.slot);
+  updateProductFromSlot();
+  f.qty.value = item.qty;
+  const btn = f.querySelector('button[type="submit"]');
+  btn.textContent = "Cập nhật fill";
+  document.querySelector('[data-view="fill"]').click();
+  showToast("Đang sửa dòng Fill. Bấm Cập nhật để lưu.");
+}
+
+function deleteFill(id){
+  const idx = findLogIndex("fill", id);
+  if(idx < 0) return;
+  const item = state.fillLogs[idx];
+  if(!confirm(`Xóa dòng Fill ${item.machine} - ${item.product} - ${item.qty}?`)) return;
+  state.fillLogs.splice(idx,1);
+  lastAction = {type:"deleteFill", index:idx, item};
+  saveState();
+  showToast("Đã xóa dòng Fill.", true);
+}
+
+function editNcc(id){
+  const idx = findLogIndex("ncc", id);
+  if(idx < 0) return;
+  const item = state.nccLogs[idx];
+  editing = {type:"ncc", id, index:idx, oldItem:{...item}};
+  const f = document.getElementById("nccForm");
+  f.date.value = item.date;
+  f.machine.value = item.machine;
+  f.product.value = item.product;
+  f.qty.value = item.qty;
+  const btn = f.querySelector('button[type="submit"]');
+  btn.textContent = "Cập nhật NCC";
+  document.querySelector('[data-view="ncc"]').click();
+  showToast("Đang sửa dòng NCC. Bấm Cập nhật để lưu.");
+}
+
+function deleteNcc(id){
+  const idx = findLogIndex("ncc", id);
+  if(idx < 0) return;
+  const item = state.nccLogs[idx];
+  if(!confirm(`Xóa dòng NCC ${item.machine} - ${item.product} - ${item.qty}?`)) return;
+  state.nccLogs.splice(idx,1);
+  lastAction = {type:"deleteNcc", index:idx, item};
+  saveState();
+  showToast("Đã xóa dòng NCC.", true);
+}
+
 function renderHistory(){
   const f = [...state.fillLogs].reverse().slice(0,20);
   $('#fillHistory').innerHTML = f.length ? f.map(x=>`
-    <div class="row"><span>${x.date}<br><span class="small">${x.machine} - Slot ${x.slot} - ${x.product}</span></span><b>${x.qty}</b></div>
+    <div class="row logrow">
+      <span>${x.date}<br><span class="small">${x.machine} - Slot ${x.slot} - ${x.product}</span></span>
+      <b>${x.qty}</b>
+      <span class="actions">
+        <button class="mini" onclick="editFill('${x.id}')">Sửa</button>
+        <button class="mini danger" onclick="deleteFill('${x.id}')">Xóa</button>
+      </span>
+    </div>
   `).join("") : `<p class="muted">Chưa có dữ liệu fill.</p>`;
 
   const n = [...state.nccLogs].reverse().slice(0,20);
   $('#nccHistory').innerHTML = n.length ? n.map(x=>`
-    <div class="row"><span>${x.date}<br><span class="small">${x.machine} - ${x.product}</span></span><b>${x.qty}</b></div>
+    <div class="row logrow">
+      <span>${x.date}<br><span class="small">${x.machine} - ${x.product}</span></span>
+      <b>${x.qty}</b>
+      <span class="actions">
+        <button class="mini" onclick="editNcc('${x.id}')">Sửa</button>
+        <button class="mini danger" onclick="deleteNcc('${x.id}')">Xóa</button>
+      </span>
+    </div>
   `).join("") : `<p class="muted">Chưa có dữ liệu NCC.</p>`;
 }
 

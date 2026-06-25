@@ -104,3 +104,25 @@ Trong app có nút:
 - Nhập dữ liệu JSON
 
 Nên xuất backup cuối ngày để tránh mất dữ liệu.
+
+
+## Cập nhật bản này
+
+### Quy tắc đặt NCC mới
+
+- Sản phẩm thường:
+  - Tồn cabin > 12: gợi ý đặt 1 quy cách.
+  - Tồn cabin <= 12: gợi ý đặt 2 quy cách.
+- Aqua / Aquafina:
+  - Tồn cabin >= 28: gợi ý đặt 2 quy cách.
+  - Tồn cabin < 28: gợi ý đặt 3 quy cách.
+
+Lưu ý: "Gợi ý đặt NCC" không tự cộng vào tồn. Chỉ số lượng nhập ở màn hình "Nhập NCC thực nhận" mới cộng vào tồn cabin.
+
+### Sửa / Xóa / Hoàn tác
+
+Trong lịch sử Fill và lịch sử NCC:
+- Bấm `Sửa` để đưa dữ liệu lên form và cập nhật.
+- Bấm `Xóa` để xóa dòng.
+- Sau khi sửa hoặc xóa có thể bấm `Hoàn tác` trong vài giây.
+
