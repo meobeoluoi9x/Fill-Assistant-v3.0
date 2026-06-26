@@ -95,3 +95,12 @@ D3
 D8
 - Boss: 1 thùng (24 lon)
 ```
+
+
+## V2.3 - Dashboard đặt NCC theo tab máy
+
+Thay đổi:
+- Phần `Đặt NCC theo từng máy` chuyển sang dạng tab ngang.
+- Bấm từng máy để xem đơn NCC của máy đó.
+- Mỗi máy vẫn có nút `Copy <tên máy>`.
+- Nút `Copy tất cả` vẫn giữ để copy toàn bộ đơn theo máy.

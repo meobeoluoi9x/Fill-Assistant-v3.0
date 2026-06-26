@@ -14,3 +14,10 @@
   .machine-order-line{grid-template-columns:1fr 78px 78px}
   .machine-order-head{align-items:flex-start}
 }
+
+
+/* V2.3 - Dashboard machine tabs */
+.machine-tab-bar{display:flex;gap:8px;overflow-x:auto;padding:2px 0 10px;margin-bottom:10px}
+.machine-tab{background:#e2e8f0;color:#0f172a;border:0;border-radius:999px;padding:10px 12px;font-weight:900;white-space:nowrap}
+.machine-tab.active{background:#0f172a;color:white}
+.single-machine{margin-bottom:0}

@@ -1,11 +1,12 @@
-const APP_VERSION = "2.2.0";
-const STORAGE_KEY = "fill_assistant_v22";
-const OLD_KEYS = ["fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
+const APP_VERSION = "2.3.0";
+const STORAGE_KEY = "fill_assistant_v23";
+const OLD_KEYS = ["fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 
 let deferredPrompt = null;
 let lastAction = null;
 let editing = null;
 let orderSummaryText = "";
+let activeOrderMachine = null;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -577,25 +578,47 @@ function renderOrders() {
   const machineNames = Object.keys(groups).sort((a, b) => a.localeCompare(b, "vi"));
   orderSummaryText = machineNames.map(machine => formatMachineOrder(machine, groups[machine])).join("\\n\\n");
 
-  $("#orderSummaryBox").innerHTML = machineNames.length ? `
-    <div class="machine-order-list">
+  if (!activeOrderMachine || !groups[activeOrderMachine]) {
+    activeOrderMachine = machineNames[0] || null;
+  }
+
+  if (!machineNames.length) {
+    $("#orderSummaryBox").innerHTML = `<p class="muted">Chưa có đơn NCC cần tổng hợp.</p>`;
+    return;
+  }
+
+  const activeRows = groups[activeOrderMachine] || [];
+
+  $("#orderSummaryBox").innerHTML = `
+    <div class="machine-tab-bar">
       ${machineNames.map(machine => `
-        <div class="machine-order-card">
-          <div class="machine-order-head">
-            <b>${machine}</b>
-            <button class="mini copy-machine" data-machine="${machine}">Copy ${machine}</button>
-          </div>
-          ${groups[machine].map(row => `
-            <div class="machine-order-line">
-              <span>${row.product}</span>
-              <b>${row.pack.packs} thùng</b>
-              <small>${row.pack.qty} ${row.pack.unit}</small>
-            </div>
-          `).join("")}
+        <button class="machine-tab ${machine === activeOrderMachine ? "active" : ""}" data-machine="${machine}">
+          ${machine}
+        </button>
+      `).join("")}
+    </div>
+
+    <div class="machine-order-card single-machine">
+      <div class="machine-order-head">
+        <b>${activeOrderMachine}</b>
+        <button class="mini copy-machine" data-machine="${activeOrderMachine}">Copy ${activeOrderMachine}</button>
+      </div>
+      ${activeRows.map(row => `
+        <div class="machine-order-line">
+          <span>${row.product}</span>
+          <b>${row.pack.packs} thùng</b>
+          <small>${row.pack.qty} ${row.pack.unit}</small>
         </div>
       `).join("")}
     </div>
-  ` : `<p class="muted">Chưa có đơn NCC cần tổng hợp.</p>`;
+  `;
+
+  $$(".machine-tab").forEach(button => {
+    button.addEventListener("click", () => {
+      activeOrderMachine = button.dataset.machine;
+      renderOrders();
+    });
+  });
 
   $$(".copy-machine").forEach(button => {
     button.addEventListener("click", () => {
