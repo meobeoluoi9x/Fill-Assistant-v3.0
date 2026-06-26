@@ -1,6 +1,6 @@
-const APP_VERSION = "3.1.0";
-const STORAGE_KEY = "fill_assistant_v31";
-const OLD_KEYS = ["fill_assistant_v30","fill_assistant_v24","fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
+const APP_VERSION = "3.2.0";
+const STORAGE_KEY = "fill_assistant_v32";
+const OLD_KEYS = ["fill_assistant_v31","fill_assistant_v30","fill_assistant_v24","fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 
 let deferredPrompt = null;
 let lastAction = null;
@@ -68,12 +68,16 @@ function makeId() {
 }
 
 function productInfo(product) {
+  return config().products?.[product] || { pack: isAquaProduct(product) ? 28 : 24, minPacks: 1 };
+}
+
+function isAquaProduct(product) {
   const lower = String(product || "").toLowerCase();
-  return config().products?.[product] || { pack: lower.includes("aqua") ? 28 : 24, minPacks: 1 };
+  return lower.includes("aqua") || lower.includes("aquafina");
 }
 
 function unitName(product) {
-  return String(product || "").toLowerCase().includes("aqua") ? "chai" : "lon";
+  return isAquaProduct(product) ? "chai" : "lon";
 }
 
 function packText(qty, product) {
@@ -84,23 +88,21 @@ function packText(qty, product) {
 
 function suggestOrder(qty, product) {
   const info = productInfo(product);
-  const lower = String(product || "").toLowerCase();
   const stock = Number(qty || 0);
 
-  // V2.4:
-  // Aqua/Aquafina giữ quy tắc riêng vì bán nhanh:
+  // Aqua/Aquafina giữ quy tắc cũ:
   // - Tồn >= 28: đặt 2 thùng = 56 chai
   // - Tồn < 28: đặt 3 thùng = 84 chai
-  if (lower.includes("aqua")) {
+  if (isAquaProduct(product)) {
     return stock >= 28 ? info.pack * 2 : info.pack * 3;
   }
 
   // Sản phẩm thường:
-  // - Tồn > 24: không đặt
-  // - Tồn 13-24: đặt 1 thùng = 24
-  // - Tồn 0-12: đặt 2 thùng = 48
-  if (stock > 24) return 0;
-  if (stock > 12) return info.pack;
+  // - Tồn > 12: không đặt
+  // - Tồn 3-12: đặt 1 thùng = 24
+  // - Tồn dưới 3: đặt 2 thùng = 48
+  if (stock > 12) return 0;
+  if (stock >= 3) return info.pack;
   return info.pack * 2;
 }
 
@@ -528,6 +530,11 @@ function buildOrderRows() {
   return rows;
 }
 
+function totalPacks(rows) {
+  return rows.reduce((sum, row) => sum + Number(row.pack?.packs || 0), 0);
+}
+
+
 function machineHealth(machine) {
   const rows = buildOrderRows().filter(row => row.machine === machine);
   const hasNegative = negativeCabinItems().some(item => item.machine === machine);
@@ -570,6 +577,7 @@ function renderSummary() {
   const cab = displayCabin();
   const negatives = negativeCabinItems().filter(item => item.machine === machine).length;
   const orders = buildOrderRows().filter(row => row.machine === machine);
+  const packs = totalPacks(orders);
 
   let low = 0;
   Object.entries(cab).forEach(([key, qty]) => {
@@ -583,8 +591,9 @@ function renderSummary() {
 
   $("#summaryBox").innerHTML = [
     ["Máy đang xem", machine || "-"],
-    ["Cabin cần chú ý", low],
+    ["Tổng thùng NCC", packs],
     ["Gợi ý NCC", orders.length],
+    ["Cabin cần chú ý", low],
     ["Lỗi dữ liệu", negatives],
     ["Fill đã ghi", fillCount],
     ["NCC đã ghi", nccCount],
@@ -612,25 +621,32 @@ function formatMachineOrder(machine, rows) {
 function renderOrders() {
   const machine = activeDashboardMachine;
   const rows = buildOrderRows().filter(row => row.machine === machine);
+  const packsTotal = totalPacks(rows);
 
-  $("#orderBox").innerHTML = rows.length ? rows.map(row => {
-    const level = row.pack.packs >= 3 ? "red" : row.pack.packs === 2 ? "orange" : "yellow";
-    return `
-      <div class="pill ${level} order-card">
-        <div>
-          <b>${row.product}</b>
-          <small>Tồn cabin: ${row.qty} ${unitName(row.product)}</small>
+  $("#orderBox").innerHTML = rows.length ? `
+    <div class="total-packs-banner">
+      <span>Tổng cần đặt</span>
+      <b>${packsTotal} thùng</b>
+    </div>
+    ${rows.map(row => {
+      const level = row.pack.packs >= 3 ? "red" : row.pack.packs === 2 ? "orange" : "yellow";
+      return `
+        <div class="pill ${level} order-card">
+          <div>
+            <b>${row.product}</b>
+            <small>Tồn cabin: ${row.qty} ${unitName(row.product)}</small>
+          </div>
+          <div class="order-qty">
+            <span>${"📦".repeat(Math.min(row.pack.packs, 4))}</span>
+            <strong>${row.pack.packs} thùng</strong>
+            <small>${row.pack.qty} ${row.pack.unit}</small>
+          </div>
         </div>
-        <div class="order-qty">
-          <span>${"📦".repeat(Math.min(row.pack.packs, 4))}</span>
-          <strong>${row.pack.packs} thùng</strong>
-          <small>${row.pack.qty} ${row.pack.unit}</small>
-        </div>
-      </div>
-    `;
-  }).join("") : `<p class="muted">Máy ${machine || ""} chưa có sản phẩm nào cần đặt.</p>`;
+      `;
+    }).join("")}
+  ` : `<p class="muted">Máy ${machine || ""} chưa có sản phẩm nào cần đặt.</p>`;
 
-  orderSummaryText = rows.length ? formatMachineOrder(machine, rows) : "";
+  orderSummaryText = rows.length ? `${formatMachineOrder(machine, rows)}\\n\\nTỔNG: ${packsTotal} THÙNG` : "";
 
   $("#orderSummaryBox").innerHTML = rows.length ? `
     <div class="machine-order-card single-machine">
@@ -645,6 +661,10 @@ function renderOrders() {
           <small>${row.pack.qty} ${row.pack.unit}</small>
         </div>
       `).join("")}
+      <div class="machine-order-total">
+        <span>TỔNG</span>
+        <b>${packsTotal} thùng</b>
+      </div>
     </div>
   ` : `<p class="muted">Không có đơn NCC cho máy này.</p>`;
 

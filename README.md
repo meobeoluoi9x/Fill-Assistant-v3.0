@@ -155,3 +155,24 @@ Chênh lệch = Tồn thực tế - Tồn app đang tính
 Sau đó tự tạo bản ghi `Điều chỉnh` với lý do `Kiểm kê`.
 
 Bạn không cần tự tính + hoặc - nữa.
+
+
+## V3.2 - Tổng thùng NCC và ngưỡng đặt mới
+
+Quy tắc đặt NCC mới:
+
+Sản phẩm thường:
+- Tồn > 12: không đặt.
+- Tồn 3-12: đặt 1 thùng.
+- Tồn dưới 3: đặt 2 thùng.
+
+Aqua/Aquafina:
+- Giữ quy tắc cũ.
+- Tồn >= 28: đặt 2 thùng.
+- Tồn < 28: đặt 3 thùng.
+- Aqua và Aquafina được xem là cùng nhóm nước Aqua.
+
+Bổ sung:
+- Dashboard hiển thị `Tổng thùng NCC` của máy đang xem.
+- Gợi ý đặt NCC có dòng `Tổng cần đặt`.
+- Copy đơn có thêm dòng `TỔNG: x THÙNG`.

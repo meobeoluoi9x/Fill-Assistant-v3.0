@@ -44,3 +44,12 @@
 @media(max-width:520px){
   .cabin-audit-row{grid-template-columns:1fr 78px 58px}
 }
+
+
+/* V3.2 - Total NCC packs */
+.total-packs-banner{display:flex;justify-content:space-between;align-items:center;background:#0f172a;color:white;border-radius:16px;padding:13px;margin-bottom:10px}
+.total-packs-banner span{font-weight:900;color:#cbd5e1}
+.total-packs-banner b{font-size:22px;font-variant-numeric:tabular-nums}
+.machine-order-total{display:grid;grid-template-columns:1fr 120px;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:2px solid #cbd5e1}
+.machine-order-total span{font-weight:1000}
+.machine-order-total b{text-align:right;font-size:18px;font-variant-numeric:tabular-nums}
