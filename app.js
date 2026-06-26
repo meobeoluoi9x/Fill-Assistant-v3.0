@@ -1,6 +1,6 @@
-const APP_VERSION = "2.3.0";
-const STORAGE_KEY = "fill_assistant_v23";
-const OLD_KEYS = ["fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
+const APP_VERSION = "2.4.0";
+const STORAGE_KEY = "fill_assistant_v24";
+const OLD_KEYS = ["fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 
 let deferredPrompt = null;
 let lastAction = null;
@@ -84,11 +84,23 @@ function packText(qty, product) {
 function suggestOrder(qty, product) {
   const info = productInfo(product);
   const lower = String(product || "").toLowerCase();
+  const stock = Number(qty || 0);
 
+  // V2.4:
+  // Aqua/Aquafina giữ quy tắc riêng vì bán nhanh:
+  // - Tồn >= 28: đặt 2 thùng = 56 chai
+  // - Tồn < 28: đặt 3 thùng = 84 chai
   if (lower.includes("aqua")) {
-    return Number(qty || 0) >= 28 ? info.pack * 2 : info.pack * 3;
+    return stock >= 28 ? info.pack * 2 : info.pack * 3;
   }
-  return Number(qty || 0) > 12 ? info.pack : info.pack * 2;
+
+  // Sản phẩm thường:
+  // - Tồn > 24: không đặt
+  // - Tồn 13-24: đặt 1 thùng = 24
+  // - Tồn 0-12: đặt 2 thùng = 48
+  if (stock > 24) return 0;
+  if (stock > 12) return info.pack;
+  return info.pack * 2;
 }
 
 function currentCabin() {

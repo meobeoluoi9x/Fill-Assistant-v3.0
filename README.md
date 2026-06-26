@@ -104,3 +104,17 @@ Thay đổi:
 - Bấm từng máy để xem đơn NCC của máy đó.
 - Mỗi máy vẫn có nút `Copy <tên máy>`.
 - Nút `Copy tất cả` vẫn giữ để copy toàn bộ đơn theo máy.
+
+
+## V2.4 - Sửa logic đặt NCC
+
+Sản phẩm thường:
+- Tồn cabin > 24: không đặt.
+- Tồn cabin 13-24: đặt 1 thùng = 24 lon/chai.
+- Tồn cabin 0-12: đặt 2 thùng = 48 lon/chai.
+
+Aqua/Aquafina:
+- Tồn cabin >= 28: đặt 2 thùng = 56 chai.
+- Tồn cabin < 28: đặt 3 thùng = 84 chai.
+
+Dashboard chỉ hiển thị sản phẩm thật sự cần đặt.
