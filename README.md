@@ -118,3 +118,19 @@ Aqua/Aquafina:
 - Tồn cabin < 28: đặt 3 thùng = 84 chai.
 
 Dashboard chỉ hiển thị sản phẩm thật sự cần đặt.
+
+
+## V3.0 - Dashboard theo máy tự do
+
+Thay đổi lớn:
+- Bỏ tuyến A/B cố định.
+- Dashboard có tab chọn 7 máy tự do.
+- Chọn máy nào thì chỉ hiển thị:
+  - Gợi ý đặt NCC của máy đó.
+  - Đơn NCC của máy đó.
+  - Hàng bán chậm/đang học của máy đó.
+  - Cabin của máy đó.
+- Nút Copy đơn chỉ copy đúng máy đang chọn.
+- App nhớ máy cuối cùng bạn đang xem.
+
+Dữ liệu Fill/NCC cũ được giữ bằng cơ chế migrate localStorage từ các bản V2.x.

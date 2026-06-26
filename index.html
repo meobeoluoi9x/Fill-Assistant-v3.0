@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
-  <title>Fill Assistant V2.4</title>
+  <title>Fill Assistant V3.0</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -13,7 +13,7 @@
     <header class="app-header">
       <div>
         <h1>Fill Assistant</h1>
-        <p>V2.4 · Trợ lý vận hành cabin</p>
+        <p>V3.0 · Dashboard theo máy</p>
       </div>
       <button id="installBtn" class="btn ghost hidden">Cài app</button>
     </header>
@@ -37,7 +37,7 @@
               <h2>Chào Trung 👋</h2>
               <p id="todayText">Hôm nay</p>
             </div>
-            <span id="routeBadge" class="route-badge">Tuyến</span>
+            <span id="routeBadge" class="route-badge">Theo máy</span>
           </div>
           <div id="routeMachines" class="chips"></div>
         </article>
@@ -46,23 +46,28 @@
 
         <article class="card">
           <div class="section-head">
-            <h2>Gợi ý đặt NCC theo máy</h2>
-            <span class="hint">Tồn cabin → thùng</span>
+            <h2>Gợi ý đặt NCC</h2>
+            <span class="hint">Máy đang chọn</span>
           </div>
           <div id="orderBox"></div>
         </article>
 
         <article class="card highlight">
           <div class="section-head">
-            <h2>Đặt NCC theo từng máy</h2>
-            <button id="copyOrderBtn" class="btn small">Copy tất cả</button>
+            <h2>Đơn NCC máy đang chọn</h2>
+            <button id="copyOrderBtn" class="btn small">Copy đơn</button>
           </div>
           <div id="orderSummaryBox"></div>
         </article>
 
         <article class="card">
-          <h2>Hàng bán chậm / đang học</h2>
+          <h2>Hàng bán chậm / đang học của máy</h2>
           <div id="slowBox"></div>
+        </article>
+
+        <article class="card">
+          <h2>Cabin máy đang chọn</h2>
+          <div id="selectedCabinBox"></div>
         </article>
       </section>
 

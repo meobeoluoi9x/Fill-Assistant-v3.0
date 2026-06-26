@@ -1,12 +1,13 @@
-const APP_VERSION = "2.4.0";
-const STORAGE_KEY = "fill_assistant_v24";
-const OLD_KEYS = ["fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
+const APP_VERSION = "3.0.0";
+const STORAGE_KEY = "fill_assistant_v30";
+const OLD_KEYS = ["fill_assistant_v24","fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 
 let deferredPrompt = null;
 let lastAction = null;
 let editing = null;
 let orderSummaryText = "";
 let activeOrderMachine = null;
+let activeDashboardMachine = localStorage.getItem("fill_assistant_active_machine") || null;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -520,32 +521,67 @@ function buildOrderRows() {
   return rows;
 }
 
+function machineHealth(machine) {
+  const rows = buildOrderRows().filter(row => row.machine === machine);
+  const hasNegative = negativeCabinItems().some(item => item.machine === machine);
+
+  if (hasNegative) return { cls: "red", label: "Lỗi" };
+  if (rows.some(row => row.pack.packs >= 3)) return { cls: "red", label: "Thiếu" };
+  if (rows.length > 0) return { cls: "yellow", label: "Cần đặt" };
+  return { cls: "green", label: "Ổn" };
+}
+
 function renderRoute() {
   $("#todayText").textContent = viDate();
 
-  const day = new Date().getDay();
-  const isB = day === 6;
-  const machines = isB ? ["Trong Ga", "Ngoài Ga", "Ga Giáp Bát"] : ["D3", "D8", "D9", "Thư Viện"];
+  const machines = config().machines.map(machine => machine.name);
+  if (!activeDashboardMachine || !machines.includes(activeDashboardMachine)) {
+    activeDashboardMachine = machines[0] || null;
+  }
 
-  $("#routeBadge").textContent = isB ? "Tuyến B" : "Tuyến A";
-  $("#routeMachines").innerHTML = machines.map(machine => `<span class="chip">${machine}</span>`).join("");
+  $("#routeBadge").textContent = activeDashboardMachine || "Theo máy";
+  $("#routeMachines").innerHTML = machines.map(machine => {
+    const health = machineHealth(machine);
+    return `<button class="machine-dashboard-tab ${machine === activeDashboardMachine ? "active" : ""} ${health.cls}" data-machine="${machine}">
+      <span>${machine}</span>
+      <small>${health.label}</small>
+    </button>`;
+  }).join("");
+
+  $$(".machine-dashboard-tab").forEach(button => {
+    button.addEventListener("click", () => {
+      activeDashboardMachine = button.dataset.machine;
+      activeOrderMachine = activeDashboardMachine;
+      localStorage.setItem("fill_assistant_active_machine", activeDashboardMachine);
+      renderAll();
+    });
+  });
 }
 
 function renderSummary() {
+  const machine = activeDashboardMachine;
   const cab = displayCabin();
-  const negatives = negativeCabinItems().length;
-  const orders = buildOrderRows();
+  const negatives = negativeCabinItems().filter(item => item.machine === machine).length;
+  const orders = buildOrderRows().filter(row => row.machine === machine);
 
   let low = 0;
-  Object.values(cab).forEach(qty => { if (Number(qty) <= 12) low++; });
+  Object.entries(cab).forEach(([key, qty]) => {
+    const [m] = key.split("||");
+    if (m === machine && Number(qty) <= 12) low++;
+  });
+
+  const fillCount = state.fillLogs.filter(log => log.machine === machine).length;
+  const nccCount = state.nccLogs.filter(log => log.machine === machine).length;
+  const adjustCount = state.adjustLogs.filter(log => log.machine === machine).length;
 
   $("#summaryBox").innerHTML = [
+    ["Máy đang xem", machine || "-"],
     ["Cabin cần chú ý", low],
     ["Gợi ý NCC", orders.length],
     ["Lỗi dữ liệu", negatives],
-    ["Fill đã ghi", state.fillLogs.length],
-    ["NCC đã ghi", state.nccLogs.length],
-    ["Điều chỉnh", state.adjustLogs.length]
+    ["Fill đã ghi", fillCount],
+    ["NCC đã ghi", nccCount],
+    ["Điều chỉnh", adjustCount]
   ].map(([label, value]) => `<div class="summary-card"><span>${label}</span><b>${value}</b></div>`).join("");
 }
 
@@ -567,14 +603,15 @@ function formatMachineOrder(machine, rows) {
 }
 
 function renderOrders() {
-  const rows = buildOrderRows();
+  const machine = activeDashboardMachine;
+  const rows = buildOrderRows().filter(row => row.machine === machine);
 
   $("#orderBox").innerHTML = rows.length ? rows.map(row => {
     const level = row.pack.packs >= 3 ? "red" : row.pack.packs === 2 ? "orange" : "yellow";
     return `
       <div class="pill ${level} order-card">
         <div>
-          <b>${row.machine} - ${row.product}</b>
+          <b>${row.product}</b>
           <small>Tồn cabin: ${row.qty} ${unitName(row.product)}</small>
         </div>
         <div class="order-qty">
@@ -584,38 +621,17 @@ function renderOrders() {
         </div>
       </div>
     `;
-  }).join("") : `<p class="muted">Chưa có sản phẩm nào cần đặt theo ngưỡng hiện tại.</p>`;
+  }).join("") : `<p class="muted">Máy ${machine || ""} chưa có sản phẩm nào cần đặt.</p>`;
 
-  const groups = groupOrdersByMachine(rows);
-  const machineNames = Object.keys(groups).sort((a, b) => a.localeCompare(b, "vi"));
-  orderSummaryText = machineNames.map(machine => formatMachineOrder(machine, groups[machine])).join("\\n\\n");
+  orderSummaryText = rows.length ? formatMachineOrder(machine, rows) : "";
 
-  if (!activeOrderMachine || !groups[activeOrderMachine]) {
-    activeOrderMachine = machineNames[0] || null;
-  }
-
-  if (!machineNames.length) {
-    $("#orderSummaryBox").innerHTML = `<p class="muted">Chưa có đơn NCC cần tổng hợp.</p>`;
-    return;
-  }
-
-  const activeRows = groups[activeOrderMachine] || [];
-
-  $("#orderSummaryBox").innerHTML = `
-    <div class="machine-tab-bar">
-      ${machineNames.map(machine => `
-        <button class="machine-tab ${machine === activeOrderMachine ? "active" : ""}" data-machine="${machine}">
-          ${machine}
-        </button>
-      `).join("")}
-    </div>
-
+  $("#orderSummaryBox").innerHTML = rows.length ? `
     <div class="machine-order-card single-machine">
       <div class="machine-order-head">
-        <b>${activeOrderMachine}</b>
-        <button class="mini copy-machine" data-machine="${activeOrderMachine}">Copy ${activeOrderMachine}</button>
+        <b>${machine}</b>
+        <button class="mini copy-machine" data-machine="${machine}">Copy ${machine}</button>
       </div>
-      ${activeRows.map(row => `
+      ${rows.map(row => `
         <div class="machine-order-line">
           <span>${row.product}</span>
           <b>${row.pack.packs} thùng</b>
@@ -623,20 +639,10 @@ function renderOrders() {
         </div>
       `).join("")}
     </div>
-  `;
-
-  $$(".machine-tab").forEach(button => {
-    button.addEventListener("click", () => {
-      activeOrderMachine = button.dataset.machine;
-      renderOrders();
-    });
-  });
+  ` : `<p class="muted">Không có đơn NCC cho máy này.</p>`;
 
   $$(".copy-machine").forEach(button => {
-    button.addEventListener("click", () => {
-      const machine = button.dataset.machine;
-      copyText(`Đơn NCC ${machine}:\\n${formatMachineOrder(machine, groups[machine])}`, `Đã copy đơn ${machine}.`);
-    });
+    button.addEventListener("click", () => copyOrderSummary());
   });
 }
 
@@ -655,19 +661,22 @@ function copyText(text, message) {
 
 function copyOrderSummary() {
   if (!orderSummaryText) {
-    showToast("Chưa có đơn NCC để copy.");
+    showToast("Máy này chưa có đơn NCC để copy.");
     return;
   }
-  copyText(`Đơn NCC theo máy:\\n${orderSummaryText}`, "Đã copy toàn bộ đơn theo máy.");
+  copyText(`Đơn NCC ${activeDashboardMachine}:\n${orderSummaryText}`, `Đã copy đơn ${activeDashboardMachine}.`);
 }
 
 function renderSlow() {
-  const pairs = unique(config().slots.map(slot => `${slot.machine}||${slot.product}`));
+  const machine = activeDashboardMachine;
+  const pairs = unique(config().slots
+    .filter(slot => slot.machine === machine)
+    .map(slot => `${slot.machine}||${slot.product}`));
 
   $("#slowBox").innerHTML = pairs.map(key => {
-    const [machine, product] = key.split("||");
-    const total30 = getRecentFill(product, machine, 30);
-    const count = state.fillLogs.filter(log => log.machine === machine && log.product === product).length;
+    const [machineName, product] = key.split("||");
+    const total30 = getRecentFill(product, machineName, 30);
+    const count = state.fillLogs.filter(log => log.machine === machineName && log.product === product).length;
 
     let cls = "blue";
     let status = `Đang học (${count}/5 lần fill)`;
@@ -682,8 +691,8 @@ function renderSlow() {
       status = "Bán tốt";
     }
 
-    return `<div class="pill ${cls}"><b>${machine} - ${product}</b><div class="small">${status} | Fill 30 ngày: ${total30}</div></div>`;
-  }).join("") || `<p class="muted">Chưa có dữ liệu slot.</p>`;
+    return `<div class="pill ${cls}"><b>${product}</b><div class="small">${status} | Fill 30 ngày: ${total30}</div></div>`;
+  }).join("") || `<p class="muted">Máy này chưa có dữ liệu slot.</p>`;
 }
 
 function renderCabin() {
@@ -833,6 +842,28 @@ function renderQuickFill() {
   });
 }
 
+function renderSelectedCabin() {
+  const machine = activeDashboardMachine;
+  const cab = displayCabin();
+  const items = Object.entries(cab)
+    .map(([key, qty]) => {
+      const [m, product] = key.split("||");
+      return { machine: m, product, qty };
+    })
+    .filter(item => item.machine === machine)
+    .sort((a, b) => a.product.localeCompare(b.product, "vi"));
+
+  const box = $("#selectedCabinBox");
+  if (!box) return;
+
+  box.innerHTML = items.length ? items.map(item => {
+    const raw = currentCabin()[`${machine}||${item.product}`] || 0;
+    const cls = raw < 0 ? "red" : item.qty < 12 ? "red" : item.qty < productInfo(item.product).pack ? "yellow" : "green";
+    const warn = raw < 0 ? `<br><span class="small warn-text">⚠ Lệch ${Math.abs(raw)} ${unitName(item.product)}</span>` : "";
+    return `<div class="row qty-row ${cls}"><span>${item.product}${warn}</span><b class="qty-num">${item.qty}</b></div>`;
+  }).join("") : `<p class="muted">Máy này chưa có dữ liệu cabin.</p>`;
+}
+
 function renderAll() {
   renderRoute();
   renderSummary();
@@ -842,6 +873,7 @@ function renderAll() {
   renderHistory();
   renderAudit();
   renderQuickFill();
+  renderSelectedCabin();
 }
 
 function exportJSON() {
