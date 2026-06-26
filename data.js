@@ -1,4 +1,4 @@
-// Dữ liệu đã được nhập từ file Excel thực tế ngày 25.
+// Fill Assistant V2.1 - Dữ liệu thực tế đã nhập từ file Excel ngày 25.
 // Tồn cabin ban đầu + Nhật ký fill ngày 25 + Nhật ký NCC ngày 25 đã được nhúng sẵn.
 
 window.FILL_CONFIG = {

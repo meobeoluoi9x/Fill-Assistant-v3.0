@@ -1,221 +1,222 @@
-const KEY = "fill_assistant_v2_production";
-const OLD_KEYS = [
-  "fill_assistant_v2",
-  "fill_assistant_v1",
-  "fill_assistant_v1_edit_undo",
-  "fill_assistant_v0"
-];
+const APP_VERSION = "2.1.0";
+const STORAGE_KEY = "fill_assistant_v21";
+const OLD_KEYS = ["fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 
 let deferredPrompt = null;
 let lastAction = null;
 let editing = null;
 let orderSummaryText = "";
 
-const $ = (s, root=document) => root.querySelector(s);
-const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
-function todayISO(){
+function todayISO() {
   const d = new Date();
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-  return d.toISOString().slice(0,10);
+  return d.toISOString().slice(0, 10);
 }
 
-function viDate(d=new Date()){
-  return d.toLocaleDateString("vi-VN", {weekday:"long", day:"2-digit", month:"2-digit", year:"numeric"});
+function viDate(d = new Date()) {
+  return d.toLocaleDateString("vi-VN", { weekday: "long", day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-function unique(arr){ return [...new Set(arr)].filter(Boolean); }
-
-function config(){
-  return window.FILL_CONFIG || {products:{}, machines:[], slots:[], initialCabin:[]};
+function config() {
+  return window.FILL_CONFIG || { products: {}, machines: [], slots: [], initialCabin: [] };
 }
 
-function normalizeState(s){
-  s ||= {};
-  s.fillLogs ||= [];
-  s.nccLogs ||= [];
-  s.adjustLogs ||= [];
-  return s;
+function unique(list) {
+  return [...new Set(list)].filter(Boolean);
 }
 
-function loadState(){
-  const saved = localStorage.getItem(KEY);
-  if(saved) return normalizeState(JSON.parse(saved));
+function normalizeState(state) {
+  state ||= {};
+  state.fillLogs ||= [];
+  state.nccLogs ||= [];
+  state.adjustLogs ||= [];
+  return state;
+}
 
-  for(const k of OLD_KEYS){
-    const old = localStorage.getItem(k);
-    if(old){
-      const parsed = normalizeState(JSON.parse(old));
-      localStorage.setItem(KEY, JSON.stringify(parsed));
-      return parsed;
+function loadState() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) return normalizeState(JSON.parse(saved));
+
+  for (const key of OLD_KEYS) {
+    const old = localStorage.getItem(key);
+    if (old) {
+      const migrated = normalizeState(JSON.parse(old));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+      return migrated;
     }
   }
 
   const initial = normalizeState(window.FILL_STATE || {});
-  localStorage.setItem(KEY, JSON.stringify(initial));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
   return initial;
 }
 
 let state = loadState();
 
-function saveState(){
-  localStorage.setItem(KEY, JSON.stringify(state));
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   renderAll();
 }
 
-function makeId(){
+function makeId() {
   return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 }
 
-function productInfo(product){
+function productInfo(product) {
   const lower = String(product || "").toLowerCase();
-  return (config().products || {})[product] || {pack: lower.includes("aqua") ? 28 : 24, minPacks: 1};
+  return config().products?.[product] || { pack: lower.includes("aqua") ? 28 : 24, minPacks: 1 };
 }
 
-function unitName(product){
+function unitName(product) {
   return String(product || "").toLowerCase().includes("aqua") ? "chai" : "lon";
 }
 
-function packText(qty, product){
+function packText(qty, product) {
   const info = productInfo(product);
   const packs = Math.ceil(Number(qty || 0) / info.pack);
-  return {packs, qty: packs * info.pack, unit: unitName(product), packSize: info.pack};
+  return { packs, qty: packs * info.pack, unit: unitName(product), packSize: info.pack };
 }
 
-function suggestOrder(qty, product){
+function suggestOrder(qty, product) {
   const info = productInfo(product);
   const lower = String(product || "").toLowerCase();
-  if(lower.includes("aqua")){
+
+  if (lower.includes("aqua")) {
     return Number(qty || 0) >= 28 ? info.pack * 2 : info.pack * 3;
   }
   return Number(qty || 0) > 12 ? info.pack : info.pack * 2;
 }
 
-function currentCabin(){
+function currentCabin() {
   const map = {};
   const add = (machine, product, qty) => {
-    if(!machine || !product) return;
-    const k = `${machine}||${product}`;
-    map[k] = (map[k] || 0) + Number(qty || 0);
+    if (!machine || !product) return;
+    const key = `${machine}||${product}`;
+    map[key] = (map[key] || 0) + Number(qty || 0);
   };
 
-  (config().initialCabin || []).forEach(x => add(x.machine, x.product, x.qty));
+  config().initialCabin?.forEach(x => add(x.machine, x.product, x.qty));
   state.nccLogs.forEach(x => add(x.machine, x.product, x.qty));
   state.adjustLogs.forEach(x => add(x.machine, x.product, x.qty));
   state.fillLogs.forEach(x => add(x.machine, x.product, -x.qty));
   return map;
 }
 
-function displayCabin(){
+function displayCabin() {
   const raw = currentCabin();
-  const out = {};
-  Object.entries(raw).forEach(([k,v]) => out[k] = Math.max(0, Number(v || 0)));
-  return out;
+  const result = {};
+  Object.entries(raw).forEach(([key, value]) => {
+    result[key] = Math.max(0, Number(value || 0));
+  });
+  return result;
 }
 
-function negativeCabinItems(){
+function negativeCabinItems() {
   return Object.entries(currentCabin())
-    .filter(([k,v]) => Number(v || 0) < 0)
-    .map(([k,v]) => {
-      const [machine, product] = k.split("||");
-      return {machine, product, raw: Number(v), shortage: Math.abs(Number(v))};
+    .filter(([, value]) => Number(value || 0) < 0)
+    .map(([key, value]) => {
+      const [machine, product] = key.split("||");
+      return { machine, product, raw: Number(value), shortage: Math.abs(Number(value)) };
     });
 }
 
-function getCabinQty(machine, product){
+function getCabinQty(machine, product) {
   return Math.max(0, Number(currentCabin()[`${machine}||${product}`] || 0));
 }
 
-function getRecentFill(product, machine, days){
+function getRecentFill(product, machine, days) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   return state.fillLogs
-    .filter(x => x.product === product && x.machine === machine && new Date(x.date) >= cutoff)
-    .reduce((s,x)=>s+Number(x.qty||0),0);
+    .filter(log => log.product === product && log.machine === machine && new Date(log.date) >= cutoff)
+    .reduce((sum, log) => sum + Number(log.qty || 0), 0);
 }
 
-function setupTabs(){
-  $$(".tab").forEach(btn=>{
-    btn.addEventListener("click", ()=>{
-      $$(".tab").forEach(b=>b.classList.remove("active"));
-      $$(".view").forEach(v=>v.classList.remove("active"));
-      btn.classList.add("active");
-      $("#" + btn.dataset.view).classList.add("active");
-      window.scrollTo({top:0, behavior:"smooth"});
+function setupTabs() {
+  $$(".tab").forEach(button => {
+    button.addEventListener("click", () => {
+      $$(".tab").forEach(tab => tab.classList.remove("active"));
+      $$(".view").forEach(view => view.classList.remove("active"));
+      button.classList.add("active");
+      $("#" + button.dataset.view).classList.add("active");
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   });
 }
 
-function fillSelects(){
-  $$('input[type="date"]').forEach(i=>{ if(!i.value) i.value = todayISO(); });
+function setupSelects() {
+  $$('input[type="date"]').forEach(input => { if (!input.value) input.value = todayISO(); });
 
-  const machineNames = (config().machines || []).map(m=>m.name);
+  const machines = config().machines.map(machine => machine.name);
   const products = unique([
     ...Object.keys(config().products || {}),
-    ...(config().slots || []).map(s=>s.product),
-    ...(config().initialCabin || []).map(c=>c.product)
-  ]).sort((a,b)=>a.localeCompare(b,"vi"));
+    ...config().slots.map(slot => slot.product),
+    ...config().initialCabin.map(item => item.product)
+  ]).sort((a, b) => a.localeCompare(b, "vi"));
 
-  $$('select[name="machine"]').forEach(sel=>{
-    sel.innerHTML = machineNames.map(m=>`<option>${m}</option>`).join("");
+  $$('select[name="machine"]').forEach(select => {
+    select.innerHTML = machines.map(machine => `<option>${machine}</option>`).join("");
   });
 
-  $$('#nccForm select[name="product"], #adjustForm select[name="product"], #stocktakeForm select[name="product"]').forEach(sel=>{
-    sel.innerHTML = products.map(p=>`<option>${p}</option>`).join("");
+  $$("#nccForm select[name='product'], #adjustForm select[name='product'], #stocktakeForm select[name='product']").forEach(select => {
+    select.innerHTML = products.map(product => `<option>${product}</option>`).join("");
   });
 
   const quickMachine = $("#quickMachine");
-  if(quickMachine){
-    quickMachine.innerHTML = machineNames.map(m=>`<option>${m}</option>`).join("");
-    quickMachine.addEventListener("change", renderQuickFill);
-  }
+  quickMachine.innerHTML = machines.map(machine => `<option>${machine}</option>`).join("");
+  quickMachine.addEventListener("change", renderQuickFill);
 
   updateSlotOptions();
 }
 
-function setupForms(){
-  fillSelects();
+function setupForms() {
+  setupSelects();
 
-  $('#fillForm select[name="machine"]').addEventListener("change", updateSlotOptions);
-  $('#fillForm select[name="slot"]').addEventListener("change", updateProductFromSlot);
+  $("#fillForm select[name='machine']").addEventListener("change", updateSlotOptions);
+  $("#fillForm select[name='slot']").addEventListener("change", updateProductFromSlot);
 
-  $('#fillForm').addEventListener("submit", e=>{
-    e.preventDefault();
-    saveFillFromForm(e.target);
+  $("#fillForm").addEventListener("submit", event => {
+    event.preventDefault();
+    saveFillFromForm(event.target);
   });
 
-  $('#nccForm').addEventListener("submit", e=>{
-    e.preventDefault();
-    saveNccFromForm(e.target);
+  $("#nccForm").addEventListener("submit", event => {
+    event.preventDefault();
+    saveNccFromForm(event.target);
   });
 
-  $('#adjustForm').addEventListener("submit", e=>{
-    e.preventDefault();
-    saveAdjustFromForm(e.target);
+  $("#adjustForm").addEventListener("submit", event => {
+    event.preventDefault();
+    saveAdjustFromForm(event.target);
   });
 
-  $('#stocktakeForm').addEventListener("submit", e=>{
-    e.preventDefault();
-    const f = e.target;
-    const machine = f.machine.value;
-    const product = f.product.value;
-    const actual = Number(f.actual.value);
+  $("#stocktakeForm").addEventListener("submit", event => {
+    event.preventDefault();
+    const form = event.target;
+    const machine = form.machine.value;
+    const product = form.product.value;
+    const actual = Number(form.actual.value);
     const current = getCabinQty(machine, product);
     const diff = actual - current;
-    if(diff === 0){
+
+    if (diff === 0) {
       showToast("Không có chênh lệch.");
       return;
     }
-    const item = {id: makeId(), date: f.date.value, machine, product, qty: diff, reason: "Kiểm kê"};
+
+    const item = { id: makeId(), date: form.date.value, machine, product, qty: diff, reason: "Kiểm kê" };
     state.adjustLogs.push(item);
-    lastAction = {type:"deleteAdjust", index: state.adjustLogs.length - 1, item};
-    f.actual.value = "";
+    lastAction = { type: "deleteAdjust", index: state.adjustLogs.length - 1, item };
+    form.actual.value = "";
     saveState();
     showToast(`Đã tạo điều chỉnh ${diff > 0 ? "+" : ""}${diff}.`, true);
   });
 
-  $("#resetDemo").addEventListener("click", ()=>{
-    if(confirm("Reset về dữ liệu gốc? Dữ liệu nhập trên thiết bị này sẽ bị xóa.")){
+  $("#resetBtn").addEventListener("click", () => {
+    if (confirm("Reset về dữ liệu gốc? Dữ liệu nhập trên thiết bị này sẽ bị xóa.")) {
       state = normalizeState(window.FILL_STATE || {});
       saveState();
     }
@@ -226,322 +227,350 @@ function setupForms(){
   $("#copyOrderBtn").addEventListener("click", copyOrderSummary);
 }
 
-function updateSlotOptions(){
-  const machine = $('#fillForm select[name="machine"]').value;
-  const slots = (config().slots || [])
-    .filter(s => s.machine === machine)
-    .sort((a,b)=>Number(a.slot)-Number(b.slot));
-  $('#fillForm select[name="slot"]').innerHTML = slots.map(s=>`<option value="${s.slot}">${s.slot}</option>`).join("");
+function updateSlotOptions() {
+  const machine = $("#fillForm select[name='machine']").value;
+  const slots = config().slots
+    .filter(slot => slot.machine === machine)
+    .sort((a, b) => Number(a.slot) - Number(b.slot));
+
+  $("#fillForm select[name='slot']").innerHTML = slots
+    .map(slot => `<option value="${slot.slot}">${slot.slot}</option>`)
+    .join("");
+
   updateProductFromSlot();
 }
 
-function updateProductFromSlot(){
-  const machine = $('#fillForm select[name="machine"]').value;
-  const slot = Number($('#fillForm select[name="slot"]').value);
-  const found = (config().slots || []).find(s => s.machine === machine && Number(s.slot) === slot);
-  $('#fillForm input[name="product"]').value = found ? found.product : "";
+function updateProductFromSlot() {
+  const machine = $("#fillForm select[name='machine']").value;
+  const slot = Number($("#fillForm select[name='slot']").value);
+  const found = config().slots.find(item => item.machine === machine && Number(item.slot) === slot);
+  $("#fillForm input[name='product']").value = found ? found.product : "";
 }
 
-function safeQtyWarning(qty, kind){
-  if(qty >= 100){
-    return confirm(`Bạn vừa nhập ${qty}. Số lượng khá lớn, có chắc không?`);
-  }
-  if(kind === "fill" && qty > 50){
-    return confirm(`Bạn vừa fill ${qty}. Có chắc không?`);
-  }
+function confirmLargeQty(qty, kind) {
+  if (qty >= 100) return confirm(`Bạn vừa nhập ${qty}. Số lượng khá lớn, có chắc không?`);
+  if (kind === "fill" && qty > 50) return confirm(`Bạn vừa fill ${qty}. Có chắc không?`);
   return true;
 }
 
-function saveFillFromForm(f){
-  const qty = Number(f.qty.value);
-  if(!safeQtyWarning(qty, "fill")) return;
+function saveFillFromForm(form) {
+  const qty = Number(form.qty.value);
+  if (!confirmLargeQty(qty, "fill")) return;
+
   const item = {
     id: editing?.type === "fill" ? editing.id : makeId(),
-    date: f.date.value,
-    machine: f.machine.value,
-    slot: Number(f.slot.value),
-    product: f.product.value,
+    date: form.date.value,
+    machine: form.machine.value,
+    slot: Number(form.slot.value),
+    product: form.product.value,
     qty
   };
 
-  if(editing?.type === "fill"){
+  if (editing?.type === "fill") {
     state.fillLogs[editing.index] = item;
-    lastAction = {type:"editFill", index:editing.index, oldItem:editing.oldItem};
+    lastAction = { type: "editFill", index: editing.index, oldItem: editing.oldItem };
     editing = null;
-    f.querySelector("button[type=submit]").textContent = "Lưu fill";
+    form.querySelector("button[type='submit']").textContent = "Lưu fill";
     showToast("Đã cập nhật Fill.", true);
-  }else{
+  } else {
     state.fillLogs.push(item);
     showToast("Đã lưu Fill.");
   }
-  f.qty.value = "";
+
+  form.qty.value = "";
   saveState();
 }
 
-function saveNccFromForm(f){
-  const qty = Number(f.qty.value);
-  if(!safeQtyWarning(qty, "ncc")) return;
+function saveNccFromForm(form) {
+  const qty = Number(form.qty.value);
+  if (!confirmLargeQty(qty, "ncc")) return;
+
   const item = {
     id: editing?.type === "ncc" ? editing.id : makeId(),
-    date: f.date.value,
-    machine: f.machine.value,
-    product: f.product.value,
+    date: form.date.value,
+    machine: form.machine.value,
+    product: form.product.value,
     qty
   };
 
-  if(editing?.type === "ncc"){
+  if (editing?.type === "ncc") {
     state.nccLogs[editing.index] = item;
-    lastAction = {type:"editNcc", index:editing.index, oldItem:editing.oldItem};
+    lastAction = { type: "editNcc", index: editing.index, oldItem: editing.oldItem };
     editing = null;
-    f.querySelector("button[type=submit]").textContent = "Lưu NCC";
+    form.querySelector("button[type='submit']").textContent = "Lưu NCC";
     showToast("Đã cập nhật NCC.", true);
-  }else{
+  } else {
     state.nccLogs.push(item);
     showToast("Đã lưu NCC thực nhận.");
   }
-  f.qty.value = "";
+
+  form.qty.value = "";
   saveState();
 }
 
-function saveAdjustFromForm(f){
+function saveAdjustFromForm(form) {
   const item = {
     id: editing?.type === "adjust" ? editing.id : makeId(),
-    date: f.date.value,
-    machine: f.machine.value,
-    product: f.product.value,
-    qty: Number(f.qty.value),
-    reason: f.reason.value
+    date: form.date.value,
+    machine: form.machine.value,
+    product: form.product.value,
+    qty: Number(form.qty.value),
+    reason: form.reason.value
   };
 
-  if(editing?.type === "adjust"){
+  if (editing?.type === "adjust") {
     state.adjustLogs[editing.index] = item;
-    lastAction = {type:"editAdjust", index:editing.index, oldItem:editing.oldItem};
+    lastAction = { type: "editAdjust", index: editing.index, oldItem: editing.oldItem };
     editing = null;
-    f.querySelector("button[type=submit]").textContent = "Lưu điều chỉnh";
+    form.querySelector("button[type='submit']").textContent = "Lưu điều chỉnh";
     showToast("Đã cập nhật điều chỉnh.", true);
-  }else{
+  } else {
     state.adjustLogs.push(item);
     showToast("Đã lưu điều chỉnh.");
   }
-  f.qty.value = "";
+
+  form.qty.value = "";
   saveState();
 }
 
-function setupQuickPads(){
-  document.querySelectorAll(".quickPad").forEach(pad=>{
+function setupQuickPads() {
+  document.querySelectorAll(".quickPad").forEach(pad => {
     const target = pad.dataset.target;
     pad.innerHTML = [1,2,5,10,12,24,28]
-      .map(n=>`<button type="button" class="quickBtn" data-val="${n}">+${n}</button>`)
-      .join("") + `<button type="button" class="quickBtn clear" data-clear="1">Xóa</button>`;
+      .map(n => `<button type="button" class="quick-btn" data-val="${n}">+${n}</button>`)
+      .join("") + `<button type="button" class="quick-btn clear" data-clear="1">Xóa</button>`;
 
-    pad.addEventListener("click", e=>{
-      const btn = e.target.closest("button");
-      if(!btn) return;
-      const input = document.querySelector(`#${target} input[name="qty"]`);
-      if(btn.dataset.clear) input.value = "";
-      else input.value = Number(input.value || 0) + Number(btn.dataset.val);
+    pad.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const input = document.querySelector(`#${target} input[name='qty']`);
+      if (button.dataset.clear) input.value = "";
+      else input.value = Number(input.value || 0) + Number(button.dataset.val);
       input.focus();
     });
   });
 
-  document.querySelectorAll(".adjustPad").forEach(pad=>{
+  document.querySelectorAll(".adjustPad").forEach(pad => {
     const target = pad.dataset.target;
     pad.innerHTML = `
-      <div class="padTitle">Thiếu</div>
-      ${[1,2,5,10,12,24,28].map(n=>`<button type="button" class="quickBtn danger" data-val="-${n}">-${n}</button>`).join("")}
-      <div class="padTitle">Dư</div>
-      ${[1,2,5,10,12,24,28].map(n=>`<button type="button" class="quickBtn" data-val="${n}">+${n}</button>`).join("")}
-      <button type="button" class="quickBtn clear" data-clear="1">Xóa</button>
+      <div class="pad-title">Thiếu</div>
+      ${[1,2,5,10,12,24,28].map(n => `<button type="button" class="quick-btn danger" data-val="-${n}">-${n}</button>`).join("")}
+      <div class="pad-title">Dư</div>
+      ${[1,2,5,10,12,24,28].map(n => `<button type="button" class="quick-btn" data-val="${n}">+${n}</button>`).join("")}
+      <button type="button" class="quick-btn clear" data-clear="1">Xóa</button>
     `;
 
-    pad.addEventListener("click", e=>{
-      const btn = e.target.closest("button");
-      if(!btn) return;
-      const input = document.querySelector(`#${target} input[name="qty"]`);
-      if(btn.dataset.clear) input.value = "";
-      else input.value = Number(input.value || 0) + Number(btn.dataset.val);
+    pad.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const input = document.querySelector(`#${target} input[name='qty']`);
+      if (button.dataset.clear) input.value = "";
+      else input.value = Number(input.value || 0) + Number(button.dataset.val);
       input.focus();
     });
   });
 }
 
-function showToast(message, undoable=false){
-  let toast = document.getElementById("toast");
-  if(!toast){
+function showToast(message, undoable = false) {
+  let toast = $("#toast");
+  if (!toast) {
     toast = document.createElement("div");
     toast.id = "toast";
     document.body.appendChild(toast);
   }
-  toast.innerHTML = `${message}${undoable ? ' <button id="undoBtn">Hoàn tác</button>' : ''}`;
+
+  toast.innerHTML = `${message}${undoable ? ' <button id="undoBtn">Hoàn tác</button>' : ""}`;
   toast.className = "show";
-  if(undoable) document.getElementById("undoBtn").onclick = undoLastAction;
+
+  if (undoable) $("#undoBtn").onclick = undoLastAction;
+
   clearTimeout(window.toastTimer);
-  window.toastTimer = setTimeout(()=>toast.className="", 5000);
+  window.toastTimer = setTimeout(() => toast.className = "", 5000);
 }
 
-function undoLastAction(){
-  if(!lastAction) return;
-  if(lastAction.type === "deleteFill") state.fillLogs.splice(lastAction.index, 0, lastAction.item);
-  if(lastAction.type === "deleteNcc") state.nccLogs.splice(lastAction.index, 0, lastAction.item);
-  if(lastAction.type === "deleteAdjust") state.adjustLogs.splice(lastAction.index, 0, lastAction.item);
-  if(lastAction.type === "editFill") state.fillLogs[lastAction.index] = lastAction.oldItem;
-  if(lastAction.type === "editNcc") state.nccLogs[lastAction.index] = lastAction.oldItem;
-  if(lastAction.type === "editAdjust") state.adjustLogs[lastAction.index] = lastAction.oldItem;
+function undoLastAction() {
+  if (!lastAction) return;
+
+  if (lastAction.type === "deleteFill") state.fillLogs.splice(lastAction.index, 0, lastAction.item);
+  if (lastAction.type === "deleteNcc") state.nccLogs.splice(lastAction.index, 0, lastAction.item);
+  if (lastAction.type === "deleteAdjust") state.adjustLogs.splice(lastAction.index, 0, lastAction.item);
+  if (lastAction.type === "editFill") state.fillLogs[lastAction.index] = lastAction.oldItem;
+  if (lastAction.type === "editNcc") state.nccLogs[lastAction.index] = lastAction.oldItem;
+  if (lastAction.type === "editAdjust") state.adjustLogs[lastAction.index] = lastAction.oldItem;
+
   lastAction = null;
   saveState();
   showToast("Đã hoàn tác.");
 }
 
-function editFill(id){
-  const idx = state.fillLogs.findIndex(x=>x.id===id);
-  if(idx < 0) return;
-  const item = state.fillLogs[idx];
-  editing = {type:"fill", id, index:idx, oldItem:{...item}};
-  const f = $("#fillForm");
-  f.date.value = item.date;
-  f.machine.value = item.machine;
+function editFill(id) {
+  const index = state.fillLogs.findIndex(item => item.id === id);
+  if (index < 0) return;
+
+  const item = state.fillLogs[index];
+  editing = { type: "fill", id, index, oldItem: { ...item } };
+
+  const form = $("#fillForm");
+  form.date.value = item.date;
+  form.machine.value = item.machine;
   updateSlotOptions();
-  f.slot.value = String(item.slot);
+  form.slot.value = String(item.slot);
   updateProductFromSlot();
-  f.qty.value = item.qty;
-  f.querySelector("button[type=submit]").textContent = "Cập nhật fill";
+  form.qty.value = item.qty;
+  form.querySelector("button[type='submit']").textContent = "Cập nhật fill";
   $('[data-view="fill"]').click();
 }
 
-function deleteFill(id){
-  const idx = state.fillLogs.findIndex(x=>x.id===id);
-  if(idx < 0) return;
-  const item = state.fillLogs[idx];
-  if(!confirm(`Xóa Fill ${item.machine} - ${item.product} - ${item.qty}?`)) return;
-  state.fillLogs.splice(idx,1);
-  lastAction = {type:"deleteFill", index:idx, item};
+function deleteFill(id) {
+  const index = state.fillLogs.findIndex(item => item.id === id);
+  if (index < 0) return;
+
+  const item = state.fillLogs[index];
+  if (!confirm(`Xóa Fill ${item.machine} - ${item.product} - ${item.qty}?`)) return;
+
+  state.fillLogs.splice(index, 1);
+  lastAction = { type: "deleteFill", index, item };
   saveState();
   showToast("Đã xóa Fill.", true);
 }
 
-function editNcc(id){
-  const idx = state.nccLogs.findIndex(x=>x.id===id);
-  if(idx < 0) return;
-  const item = state.nccLogs[idx];
-  editing = {type:"ncc", id, index:idx, oldItem:{...item}};
-  const f = $("#nccForm");
-  f.date.value = item.date;
-  f.machine.value = item.machine;
-  f.product.value = item.product;
-  f.qty.value = item.qty;
-  f.querySelector("button[type=submit]").textContent = "Cập nhật NCC";
+function editNcc(id) {
+  const index = state.nccLogs.findIndex(item => item.id === id);
+  if (index < 0) return;
+
+  const item = state.nccLogs[index];
+  editing = { type: "ncc", id, index, oldItem: { ...item } };
+
+  const form = $("#nccForm");
+  form.date.value = item.date;
+  form.machine.value = item.machine;
+  form.product.value = item.product;
+  form.qty.value = item.qty;
+  form.querySelector("button[type='submit']").textContent = "Cập nhật NCC";
   $('[data-view="ncc"]').click();
 }
 
-function deleteNcc(id){
-  const idx = state.nccLogs.findIndex(x=>x.id===id);
-  if(idx < 0) return;
-  const item = state.nccLogs[idx];
-  if(!confirm(`Xóa NCC ${item.machine} - ${item.product} - ${item.qty}?`)) return;
-  state.nccLogs.splice(idx,1);
-  lastAction = {type:"deleteNcc", index:idx, item};
+function deleteNcc(id) {
+  const index = state.nccLogs.findIndex(item => item.id === id);
+  if (index < 0) return;
+
+  const item = state.nccLogs[index];
+  if (!confirm(`Xóa NCC ${item.machine} - ${item.product} - ${item.qty}?`)) return;
+
+  state.nccLogs.splice(index, 1);
+  lastAction = { type: "deleteNcc", index, item };
   saveState();
   showToast("Đã xóa NCC.", true);
 }
 
-function editAdjust(id){
-  const idx = state.adjustLogs.findIndex(x=>x.id===id);
-  if(idx < 0) return;
-  const item = state.adjustLogs[idx];
-  editing = {type:"adjust", id, index:idx, oldItem:{...item}};
-  const f = $("#adjustForm");
-  f.date.value = item.date;
-  f.machine.value = item.machine;
-  f.product.value = item.product;
-  f.qty.value = item.qty;
-  f.reason.value = item.reason || "Đếm lại";
-  f.querySelector("button[type=submit]").textContent = "Cập nhật điều chỉnh";
+function editAdjust(id) {
+  const index = state.adjustLogs.findIndex(item => item.id === id);
+  if (index < 0) return;
+
+  const item = state.adjustLogs[index];
+  editing = { type: "adjust", id, index, oldItem: { ...item } };
+
+  const form = $("#adjustForm");
+  form.date.value = item.date;
+  form.machine.value = item.machine;
+  form.product.value = item.product;
+  form.qty.value = item.qty;
+  form.reason.value = item.reason || "Đếm lại";
+  form.querySelector("button[type='submit']").textContent = "Cập nhật điều chỉnh";
   $('[data-view="adjust"]').click();
 }
 
-function deleteAdjust(id){
-  const idx = state.adjustLogs.findIndex(x=>x.id===id);
-  if(idx < 0) return;
-  const item = state.adjustLogs[idx];
-  if(!confirm(`Xóa điều chỉnh ${item.machine} - ${item.product} - ${item.qty}?`)) return;
-  state.adjustLogs.splice(idx,1);
-  lastAction = {type:"deleteAdjust", index:idx, item};
+function deleteAdjust(id) {
+  const index = state.adjustLogs.findIndex(item => item.id === id);
+  if (index < 0) return;
+
+  const item = state.adjustLogs[index];
+  if (!confirm(`Xóa điều chỉnh ${item.machine} - ${item.product} - ${item.qty}?`)) return;
+
+  state.adjustLogs.splice(index, 1);
+  lastAction = { type: "deleteAdjust", index, item };
   saveState();
   showToast("Đã xóa điều chỉnh.", true);
 }
 
-function renderRoute(){
-  $("#todayText").textContent = viDate();
-  const day = new Date().getDay();
-  const isB = day === 6;
-  const machines = isB ? ["Trong Ga","Ngoài Ga","Ga Giáp Bát"] : ["D3","D8","D9","Thư Viện"];
-  $("#routeBadge").textContent = isB ? "Tuyến B" : "Tuyến A";
-  $("#routeMachines").innerHTML = machines.map(m=>`<span class="chip">${m}</span>`).join("");
-}
-
-function buildOrderRows(){
+function buildOrderRows() {
   const cab = displayCabin();
   const rows = [];
-  Object.entries(cab).forEach(([k, qty])=>{
-    const [machine, product] = k.split("||");
+
+  Object.entries(cab).forEach(([key, qty]) => {
+    const [machine, product] = key.split("||");
     const order = suggestOrder(qty, product);
-    if(order > 0){
-      rows.push({machine, product, qty, order, pack: packText(order, product)});
-    }
+    if (order > 0) rows.push({ machine, product, qty, order, pack: packText(order, product) });
   });
-  rows.sort((a,b)=>a.machine.localeCompare(b.machine,"vi") || a.product.localeCompare(b.product,"vi"));
+
+  rows.sort((a, b) => a.machine.localeCompare(b.machine, "vi") || a.product.localeCompare(b.product, "vi"));
   return rows;
 }
 
-function renderSummary(){
+function renderRoute() {
+  $("#todayText").textContent = viDate();
+
+  const day = new Date().getDay();
+  const isB = day === 6;
+  const machines = isB ? ["Trong Ga", "Ngoài Ga", "Ga Giáp Bát"] : ["D3", "D8", "D9", "Thư Viện"];
+
+  $("#routeBadge").textContent = isB ? "Tuyến B" : "Tuyến A";
+  $("#routeMachines").innerHTML = machines.map(machine => `<span class="chip">${machine}</span>`).join("");
+}
+
+function renderSummary() {
   const cab = displayCabin();
   const negatives = negativeCabinItems().length;
+  const orders = buildOrderRows();
+
   let low = 0;
-  Object.values(cab).forEach(q=>{ if(Number(q) <= 12) low++; });
-  const rows = buildOrderRows();
+  Object.values(cab).forEach(qty => { if (Number(qty) <= 12) low++; });
+
   $("#summaryBox").innerHTML = [
     ["Cabin cần chú ý", low],
-    ["Gợi ý NCC", rows.length],
+    ["Gợi ý NCC", orders.length],
     ["Lỗi dữ liệu", negatives],
     ["Fill đã ghi", state.fillLogs.length],
     ["NCC đã ghi", state.nccLogs.length],
     ["Điều chỉnh", state.adjustLogs.length]
-  ].map(([t,v])=>`<div class="summaryCard"><span>${t}</span><b>${v}</b></div>`).join("");
+  ].map(([label, value]) => `<div class="summary-card"><span>${label}</span><b>${value}</b></div>`).join("");
 }
 
-function renderOrders(){
+function renderOrders() {
   const rows = buildOrderRows();
-  $("#orderBox").innerHTML = rows.length ? rows.map(r=>{
-    const level = r.pack.packs >= 3 ? "red" : r.pack.packs === 2 ? "orange" : "yellow";
+
+  $("#orderBox").innerHTML = rows.length ? rows.map(row => {
+    const level = row.pack.packs >= 3 ? "red" : row.pack.packs === 2 ? "orange" : "yellow";
     return `
-      <div class="pill ${level} orderCard">
+      <div class="pill ${level} order-card">
         <div>
-          <b>${r.machine} - ${r.product}</b>
-          <small>Tồn cabin: ${r.qty} ${unitName(r.product)}</small>
+          <b>${row.machine} - ${row.product}</b>
+          <small>Tồn cabin: ${row.qty} ${unitName(row.product)}</small>
         </div>
-        <div class="orderQty">
-          <span>${"📦".repeat(Math.min(r.pack.packs,4))}</span>
-          <strong>${r.pack.packs} thùng</strong>
-          <small>${r.pack.qty} ${r.pack.unit}</small>
+        <div class="order-qty">
+          <span>${"📦".repeat(Math.min(row.pack.packs, 4))}</span>
+          <strong>${row.pack.packs} thùng</strong>
+          <small>${row.pack.qty} ${row.pack.unit}</small>
         </div>
       </div>
     `;
   }).join("") : `<p class="muted">Chưa có sản phẩm nào cần đặt theo ngưỡng hiện tại.</p>`;
 
   const summary = {};
-  rows.forEach(r=>{
-    summary[r.product] ||= {packs:0, qty:0, unit:unitName(r.product)};
-    summary[r.product].packs += r.pack.packs;
-    summary[r.product].qty += r.pack.qty;
+  rows.forEach(row => {
+    summary[row.product] ||= { packs: 0, qty: 0, unit: unitName(row.product) };
+    summary[row.product].packs += row.pack.packs;
+    summary[row.product].qty += row.pack.qty;
   });
 
-  const items = Object.entries(summary).sort((a,b)=>a[0].localeCompare(b[0],"vi"));
-  orderSummaryText = items.map(([p,s])=>`${p}: ${s.packs} thùng (${s.qty} ${s.unit})`).join("\n");
+  const items = Object.entries(summary).sort((a, b) => a[0].localeCompare(b[0], "vi"));
+  orderSummaryText = items.map(([product, s]) => `${product}: ${s.packs} thùng (${s.qty} ${s.unit})`).join("\n");
+
   $("#orderSummaryBox").innerHTML = items.length ? `
-    <div class="orderSummaryList">
-      ${items.map(([p,s])=>`
-        <div class="summaryLine">
-          <span>${p}</span>
+    <div class="order-summary-list">
+      ${items.map(([product, s]) => `
+        <div class="summary-line">
+          <span>${product}</span>
           <b>${s.packs} thùng</b>
           <small>${s.qty} ${s.unit}</small>
         </div>
@@ -550,146 +579,176 @@ function renderOrders(){
   ` : `<p class="muted">Chưa có đơn NCC cần tổng hợp.</p>`;
 }
 
-function copyOrderSummary(){
-  if(!orderSummaryText){
+function copyOrderSummary() {
+  if (!orderSummaryText) {
     showToast("Chưa có đơn NCC để copy.");
     return;
   }
+
   const text = `Đơn NCC hôm nay:\n${orderSummaryText}`;
-  if(navigator.clipboard){
-    navigator.clipboard.writeText(text).then(()=>showToast("Đã copy đơn NCC."));
-  }else{
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast("Đã copy đơn NCC."));
+  } else {
     showToast(text);
   }
 }
 
-function renderSlow(){
-  const pairs = unique((config().slots || []).map(s=>`${s.machine}||${s.product}`));
-  $("#slowBox").innerHTML = pairs.map(k=>{
-    const [machine, product] = k.split("||");
+function renderSlow() {
+  const pairs = unique(config().slots.map(slot => `${slot.machine}||${slot.product}`));
+
+  $("#slowBox").innerHTML = pairs.map(key => {
+    const [machine, product] = key.split("||");
     const total30 = getRecentFill(product, machine, 30);
-    const count = state.fillLogs.filter(x=>x.machine===machine && x.product===product).length;
-    let cls = "blue", status = `Đang học (${count}/5 lần fill)`;
-    if(count >= 5 && total30 <= 5){ cls = "yellow"; status = "Bán chậm 30 ngày"; }
-    if(count >= 5 && total30 > 30){ cls = "green"; status = "Bán tốt"; }
+    const count = state.fillLogs.filter(log => log.machine === machine && log.product === product).length;
+
+    let cls = "blue";
+    let status = `Đang học (${count}/5 lần fill)`;
+
+    if (count >= 5 && total30 <= 5) {
+      cls = "yellow";
+      status = "Bán chậm 30 ngày";
+    }
+
+    if (count >= 5 && total30 > 30) {
+      cls = "green";
+      status = "Bán tốt";
+    }
+
     return `<div class="pill ${cls}"><b>${machine} - ${product}</b><div class="small">${status} | Fill 30 ngày: ${total30}</div></div>`;
   }).join("") || `<p class="muted">Chưa có dữ liệu slot.</p>`;
 }
 
-function renderCabin(){
+function renderCabin() {
   const cab = displayCabin();
   const grouped = {};
-  Object.entries(cab).forEach(([k, qty])=>{
-    const [machine, product] = k.split("||");
+
+  Object.entries(cab).forEach(([key, qty]) => {
+    const [machine, product] = key.split("||");
     grouped[machine] ||= [];
-    grouped[machine].push({product, qty});
+    grouped[machine].push({ product, qty });
   });
 
-  $("#cabinBox").innerHTML = Object.keys(grouped).sort((a,b)=>a.localeCompare(b,"vi")).map(machine=>`
-    <div class="machineTitle">${machine}</div>
-    ${grouped[machine].sort((a,b)=>a.product.localeCompare(b.product,"vi")).map(x=>{
-      const raw = currentCabin()[`${machine}||${x.product}`] || 0;
-      const cls = raw < 0 ? "red" : x.qty < 12 ? "red" : x.qty < productInfo(x.product).pack ? "yellow" : "green";
-      const warn = raw < 0 ? `<br><span class="small warnText">⚠ Lệch ${Math.abs(raw)} ${unitName(x.product)}</span>` : "";
-      return `<div class="row qtyRow ${cls}"><span>${x.product}${warn}</span><b class="qtyNum">${x.qty}</b></div>`;
+  $("#cabinBox").innerHTML = Object.keys(grouped).sort((a, b) => a.localeCompare(b, "vi")).map(machine => `
+    <div class="machine-title">${machine}</div>
+    ${grouped[machine].sort((a, b) => a.product.localeCompare(b.product, "vi")).map(item => {
+      const raw = currentCabin()[`${machine}||${item.product}`] || 0;
+      const cls = raw < 0 ? "red" : item.qty < 12 ? "red" : item.qty < productInfo(item.product).pack ? "yellow" : "green";
+      const warn = raw < 0 ? `<br><span class="small warn-text">⚠ Lệch ${Math.abs(raw)} ${unitName(item.product)}</span>` : "";
+      return `<div class="row qty-row ${cls}"><span>${item.product}${warn}</span><b class="qty-num">${item.qty}</b></div>`;
     }).join("")}
   `).join("");
 }
 
-function renderHistory(){
-  const recent = arr => [...arr].reverse().slice(0,40);
+function renderHistory() {
+  const recent = arr => [...arr].reverse().slice(0, 40);
 
-  $("#fillHistory").innerHTML = recent(state.fillLogs).map(x=>`
+  $("#fillHistory").innerHTML = recent(state.fillLogs).map(item => `
     <div class="row">
-      <span>${x.date}<br><span class="small">${x.machine} - Slot ${x.slot} - ${x.product}</span></span>
-      <b>${x.qty}</b>
+      <span>${item.date}<br><span class="small">${item.machine} - Slot ${item.slot} - ${item.product}</span></span>
+      <b>${item.qty}</b>
       <span class="actions">
-        <button class="mini" onclick="editFill('${x.id}')">Sửa</button>
-        <button class="mini danger" onclick="deleteFill('${x.id}')">Xóa</button>
+        <button class="mini" onclick="editFill('${item.id}')">Sửa</button>
+        <button class="mini danger" onclick="deleteFill('${item.id}')">Xóa</button>
       </span>
     </div>
   `).join("") || `<p class="muted">Chưa có dữ liệu Fill.</p>`;
 
-  $("#nccHistory").innerHTML = recent(state.nccLogs).map(x=>`
+  $("#nccHistory").innerHTML = recent(state.nccLogs).map(item => `
     <div class="row">
-      <span>${x.date}<br><span class="small">${x.machine} - ${x.product}</span></span>
-      <b>${x.qty}</b>
+      <span>${item.date}<br><span class="small">${item.machine} - ${item.product}</span></span>
+      <b>${item.qty}</b>
       <span class="actions">
-        <button class="mini" onclick="editNcc('${x.id}')">Sửa</button>
-        <button class="mini danger" onclick="deleteNcc('${x.id}')">Xóa</button>
+        <button class="mini" onclick="editNcc('${item.id}')">Sửa</button>
+        <button class="mini danger" onclick="deleteNcc('${item.id}')">Xóa</button>
       </span>
     </div>
   `).join("") || `<p class="muted">Chưa có dữ liệu NCC.</p>`;
 
-  $("#adjustHistory").innerHTML = recent(state.adjustLogs).map(x=>`
+  $("#adjustHistory").innerHTML = recent(state.adjustLogs).map(item => `
     <div class="row">
-      <span>${x.date}<br><span class="small">${x.machine} - ${x.product} - ${x.reason || ""}</span></span>
-      <b>${x.qty > 0 ? "+" + x.qty : x.qty}</b>
+      <span>${item.date}<br><span class="small">${item.machine} - ${item.product} - ${item.reason || ""}</span></span>
+      <b>${item.qty > 0 ? "+" + item.qty : item.qty}</b>
       <span class="actions">
-        <button class="mini" onclick="editAdjust('${x.id}')">Sửa</button>
-        <button class="mini danger" onclick="deleteAdjust('${x.id}')">Xóa</button>
+        <button class="mini" onclick="editAdjust('${item.id}')">Sửa</button>
+        <button class="mini danger" onclick="deleteAdjust('${item.id}')">Xóa</button>
       </span>
     </div>
   `).join("") || `<p class="muted">Chưa có dữ liệu điều chỉnh.</p>`;
 }
 
-function renderAudit(){
+function renderAudit() {
   const negatives = negativeCabinItems();
-  $("#auditBox").innerHTML = negatives.length ? negatives.map(x=>`
+
+  $("#auditBox").innerHTML = negatives.length ? negatives.map(item => `
     <div class="pill red">
-      <b>${x.machine} - ${x.product}</b>
-      <div class="small">Tồn tính toán: ${x.raw} | Hiển thị: 0 | Lệch: ${x.shortage}</div>
-      <button class="mini" onclick="quickFixNegative('${x.machine}','${x.product}',${x.shortage})">Tạo điều chỉnh +${x.shortage}</button>
+      <b>${item.machine} - ${item.product}</b>
+      <div class="small">Tồn tính toán: ${item.raw} | Hiển thị: 0 | Lệch: ${item.shortage}</div>
+      <button class="mini" onclick="quickFixNegative('${item.machine}','${item.product}',${item.shortage})">Tạo điều chỉnh +${item.shortage}</button>
     </div>
   `).join("") : `<div class="pill green"><b>Dữ liệu ổn</b><div class="small">Không có cabin nào bị âm.</div></div>`;
 }
 
-function quickFixNegative(machine, product, qty){
-  if(!confirm(`Tạo điều chỉnh +${qty} cho ${machine} - ${product}?`)) return;
-  const item = {id: makeId(), date: todayISO(), machine, product, qty: Number(qty), reason: "Sửa cabin âm"};
+function quickFixNegative(machine, product, qty) {
+  if (!confirm(`Tạo điều chỉnh +${qty} cho ${machine} - ${product}?`)) return;
+
+  const item = { id: makeId(), date: todayISO(), machine, product, qty: Number(qty), reason: "Sửa cabin âm" };
   state.adjustLogs.push(item);
-  lastAction = {type:"deleteAdjust", index:state.adjustLogs.length - 1, item};
+  lastAction = { type: "deleteAdjust", index: state.adjustLogs.length - 1, item };
   saveState();
   showToast("Đã tạo điều chỉnh.", true);
 }
 
-function renderQuickFill(){
+function renderQuickFill() {
   const machine = $("#quickMachine").value;
-  const slots = (config().slots || [])
-    .filter(s=>s.machine === machine)
-    .sort((a,b)=>Number(a.slot)-Number(b.slot));
+  const slots = config().slots
+    .filter(slot => slot.machine === machine)
+    .sort((a, b) => Number(a.slot) - Number(b.slot));
 
-  $("#quickFillBox").innerHTML = slots.map(s=>`
-    <div class="slotCard" data-machine="${s.machine}" data-slot="${s.slot}" data-product="${s.product}">
-      <div class="slotHead">
-        <div><b>Slot ${s.slot}</b><br><span>${s.product}</span></div>
-        <span>Max ${s.max || ""}</span>
+  $("#quickFillBox").innerHTML = slots.map(slot => `
+    <div class="slot-card" data-machine="${slot.machine}" data-slot="${slot.slot}" data-product="${slot.product}">
+      <div class="slot-head">
+        <div><b>Slot ${slot.slot}</b><br><span>${slot.product}</span></div>
+        <span>Max ${slot.max || ""}</span>
       </div>
-      <div class="slotControls">
+      <div class="slot-controls">
         <input type="number" min="0" step="1" inputmode="numeric" placeholder="Đã fill" />
-        <div class="slotActions">
-          ${[1,2,5,10,12,24,28].map(n=>`<button type="button" data-val="${n}">+${n}</button>`).join("")}
+        <div class="slot-actions">
+          ${[1,2,5,10,12,24,28].map(n => `<button type="button" data-val="${n}">+${n}</button>`).join("")}
           <button type="button" data-clear="1">Xóa</button>
-          <button type="button" class="save">Lưu Slot ${s.slot}</button>
+          <button type="button" class="save">Lưu Slot ${slot.slot}</button>
         </div>
       </div>
     </div>
   `).join("") || `<p class="muted">Máy này chưa có slot.</p>`;
 
-  $$(".slotCard").forEach(card=>{
+  $$(".slot-card").forEach(card => {
     const input = $("input", card);
-    card.addEventListener("click", e=>{
-      const btn = e.target.closest("button");
-      if(!btn) return;
-      if(btn.dataset.clear) input.value = "";
-      else if(btn.dataset.val) input.value = Number(input.value || 0) + Number(btn.dataset.val);
-      else if(btn.classList.contains("save")){
+
+    card.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+
+      if (button.dataset.clear) {
+        input.value = "";
+        return;
+      }
+
+      if (button.dataset.val) {
+        input.value = Number(input.value || 0) + Number(button.dataset.val);
+        return;
+      }
+
+      if (button.classList.contains("save")) {
         const qty = Number(input.value || 0);
-        if(qty <= 0){
+
+        if (qty <= 0) {
           showToast("Chưa nhập số lượng fill.");
           return;
         }
-        if(!safeQtyWarning(qty, "fill")) return;
+
+        if (!confirmLargeQty(qty, "fill")) return;
+
         state.fillLogs.push({
           id: makeId(),
           date: todayISO(),
@@ -698,6 +757,7 @@ function renderQuickFill(){
           product: card.dataset.product,
           qty
         });
+
         input.value = "";
         saveState();
         showToast(`Đã lưu ${card.dataset.machine} - Slot ${card.dataset.slot}: ${qty}`);
@@ -706,7 +766,7 @@ function renderQuickFill(){
   });
 }
 
-function renderAll(){
+function renderAll() {
   renderRoute();
   renderSummary();
   renderOrders();
@@ -717,49 +777,50 @@ function renderAll(){
   renderQuickFill();
 }
 
-function exportJSON(){
-  const blob = new Blob([JSON.stringify({version:"2.0", config: config(), state}, null, 2)], {type:"application/json"});
+function exportJSON() {
+  const blob = new Blob([JSON.stringify({ version: APP_VERSION, config: config(), state }, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `fill-assistant-backup-${todayISO()}.json`;
   a.click();
 }
 
-function importJSON(e){
-  const file = e.target.files[0];
-  if(!file) return;
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
   const reader = new FileReader();
-  reader.onload = ()=>{
-    try{
+  reader.onload = () => {
+    try {
       const data = JSON.parse(reader.result);
-      if(data.state){
-        state = normalizeState(data.state);
-        saveState();
-        showToast("Đã nhập dữ liệu.");
-      }else{
+      if (!data.state) {
         showToast("File không đúng định dạng.");
+        return;
       }
-    }catch(err){
+      state = normalizeState(data.state);
+      saveState();
+      showToast("Đã nhập dữ liệu.");
+    } catch {
       showToast("Không đọc được JSON.");
     }
   };
   reader.readAsText(file);
 }
 
-window.addEventListener("beforeinstallprompt", e=>{
-  e.preventDefault();
-  deferredPrompt = e;
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  deferredPrompt = event;
   $("#installBtn").classList.remove("hidden");
 });
 
-$("#installBtn")?.addEventListener("click", async()=>{
-  if(!deferredPrompt) return;
+$("#installBtn")?.addEventListener("click", async () => {
+  if (!deferredPrompt) return;
   deferredPrompt.prompt();
   deferredPrompt = null;
   $("#installBtn").classList.add("hidden");
 });
 
-if("serviceWorker" in navigator){
+if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js");
 }
 

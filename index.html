@@ -4,22 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
-  <title>Fill Assistant V2.0</title>
+  <title>Fill Assistant V2.1</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app">
-    <header class="header">
+    <header class="app-header">
       <div>
         <h1>Fill Assistant</h1>
-        <p>V2.0 · Trợ lý vận hành cabin</p>
+        <p>V2.1 · Trợ lý vận hành cabin</p>
       </div>
       <button id="installBtn" class="btn ghost hidden">Cài app</button>
     </header>
 
-    <nav class="tabs" aria-label="Điều hướng">
-      <button class="tab active" data-view="home">Hôm nay</button>
+    <nav class="tabs" aria-label="Điều hướng chính">
+      <button class="tab active" data-view="dashboard">Dashboard</button>
       <button class="tab" data-view="quickfill">Fill nhanh</button>
       <button class="tab" data-view="fill">Nhập Fill</button>
       <button class="tab" data-view="ncc">NCC</button>
@@ -30,32 +30,32 @@
     </nav>
 
     <main>
-      <section id="home" class="view active">
+      <section id="dashboard" class="view active">
         <article class="card hero">
-          <div class="heroTop">
+          <div class="hero-row">
             <div>
               <h2>Chào Trung 👋</h2>
               <p id="todayText">Hôm nay</p>
             </div>
-            <div id="routeBadge" class="routeBadge">Tuyến</div>
+            <span id="routeBadge" class="route-badge">Tuyến</span>
           </div>
-          <div id="routeMachines" class="machineChips"></div>
+          <div id="routeMachines" class="chips"></div>
         </article>
 
-        <div id="summaryBox" class="summaryGrid"></div>
+        <div id="summaryBox" class="summary-grid"></div>
 
         <article class="card">
-          <div class="sectionTitle">
+          <div class="section-head">
             <h2>Gợi ý đặt NCC theo máy</h2>
-            <span class="hint">Theo cabin hiện tại</span>
+            <span class="hint">Tồn cabin → thùng</span>
           </div>
           <div id="orderBox"></div>
         </article>
 
-        <article class="card important">
-          <div class="sectionTitle">
+        <article class="card highlight">
+          <div class="section-head">
             <h2>Tổng hợp đặt NCC</h2>
-            <button id="copyOrderBtn" class="btn smallBtn">Copy đơn</button>
+            <button id="copyOrderBtn" class="btn small">Copy đơn</button>
           </div>
           <div id="orderSummaryBox"></div>
         </article>
@@ -68,12 +68,12 @@
 
       <section id="quickfill" class="view">
         <article class="card">
-          <div class="sectionTitle">
+          <div class="section-head">
             <h2>Fill nhanh theo máy</h2>
-            <span class="hint">Vuốt xuống từng slot</span>
+            <span class="hint">Nhập từng slot, lưu ngay</span>
           </div>
           <label>Máy <select id="quickMachine"></select></label>
-          <div id="quickFillBox" class="quickFillBox"></div>
+          <div id="quickFillBox" class="quick-fill-box"></div>
         </article>
       </section>
 
@@ -90,6 +90,7 @@
             <button type="submit" class="btn primary">Lưu fill</button>
           </form>
         </article>
+
         <article class="card">
           <h2>Lịch sử Fill</h2>
           <div id="fillHistory"></div>
@@ -108,6 +109,7 @@
             <button type="submit" class="btn primary">Lưu NCC</button>
           </form>
         </article>
+
         <article class="card">
           <h2>Lịch sử NCC</h2>
           <div id="nccHistory"></div>
@@ -116,7 +118,7 @@
 
       <section id="cabin" class="view">
         <article class="card">
-          <div class="sectionTitle">
+          <div class="section-head">
             <h2>Tồn cabin hiện tại</h2>
             <span class="hint">Âm → hiện 0 + cảnh báo</span>
           </div>
@@ -146,6 +148,7 @@
             <button type="submit" class="btn primary">Lưu điều chỉnh</button>
           </form>
         </article>
+
         <article class="card">
           <h2>Lịch sử điều chỉnh</h2>
           <div id="adjustHistory"></div>
@@ -175,19 +178,19 @@
       <section id="backup" class="view">
         <article class="card">
           <h2>Sao lưu / phục hồi</h2>
-          <p class="muted">Bản hiện tại lưu trên trình duyệt. Nên xuất JSON cuối ngày.</p>
-          <div class="buttonRow">
+          <p class="muted">Bản hiện tại lưu dữ liệu trên trình duyệt. Nên xuất JSON cuối ngày.</p>
+          <div class="button-row">
             <button id="exportBtn" class="btn primary">Xuất dữ liệu JSON</button>
-            <label class="fileBtn">Nhập dữ liệu JSON
+            <label class="file-btn">Nhập dữ liệu JSON
               <input id="importInput" type="file" accept="application/json" />
             </label>
           </div>
         </article>
 
-        <article class="card dangerZone">
+        <article class="card danger-zone">
           <h2>Reset dữ liệu</h2>
           <p class="muted">Chỉ dùng khi muốn xóa dữ liệu nhập trên thiết bị này.</p>
-          <button id="resetDemo" class="btn danger">Reset về dữ liệu gốc</button>
+          <button id="resetBtn" class="btn danger">Reset về dữ liệu gốc</button>
         </article>
       </section>
     </main>
