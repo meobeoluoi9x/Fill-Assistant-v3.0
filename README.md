@@ -67,3 +67,31 @@ Aqua/Aquafina:
 Trong app vào tab `Sao lưu` → `Xuất dữ liệu JSON`.
 
 Nên sao lưu cuối ngày.
+
+
+## V2.2 - Copy đơn NCC theo từng máy
+
+Thay đổi phần NCC:
+- `Tổng hợp đặt NCC` đổi thành `Đặt NCC theo từng máy`.
+- Mỗi máy có nút `Copy <tên máy>`.
+- Nút `Copy tất cả` sẽ copy toàn bộ đơn theo từng máy.
+
+Ví dụ nội dung copy:
+
+```text
+Đơn NCC D3:
+D3
+- Aquafina: 2 thùng (56 chai)
+- Pepsi: 1 thùng (24 lon)
+```
+
+Hoặc copy tất cả:
+
+```text
+Đơn NCC theo máy:
+D3
+- Aquafina: 2 thùng (56 chai)
+
+D8
+- Boss: 1 thùng (24 lon)
+```

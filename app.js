@@ -1,6 +1,6 @@
-const APP_VERSION = "2.1.0";
-const STORAGE_KEY = "fill_assistant_v21";
-const OLD_KEYS = ["fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
+const APP_VERSION = "2.2.0";
+const STORAGE_KEY = "fill_assistant_v22";
+const OLD_KEYS = ["fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 
 let deferredPrompt = null;
 let lastAction = null;
@@ -158,7 +158,7 @@ function setupSelects() {
   ]).sort((a, b) => a.localeCompare(b, "vi"));
 
   $$('select[name="machine"]').forEach(select => {
-    select.innerHTML = machines.map(machine => `<option>${machine}</option>`).join("");
+    select.innerHTML = machines.map(machine => `<option>${machine}</option>`).join("\n\n");
   });
 
   $$("#nccForm select[name='product'], #adjustForm select[name='product'], #stocktakeForm select[name='product']").forEach(select => {
@@ -536,6 +536,23 @@ function renderSummary() {
   ].map(([label, value]) => `<div class="summary-card"><span>${label}</span><b>${value}</b></div>`).join("");
 }
 
+function groupOrdersByMachine(rows) {
+  const groups = {};
+  rows.forEach(row => {
+    groups[row.machine] ||= [];
+    groups[row.machine].push(row);
+  });
+  return groups;
+}
+
+function formatMachineOrder(machine, rows) {
+  const lines = [`${machine}`];
+  rows.forEach(row => {
+    lines.push(`- ${row.product}: ${row.pack.packs} thùng (${row.pack.qty} ${row.pack.unit})`);
+  });
+  return lines.join("\\n");
+}
+
 function renderOrders() {
   const rows = buildOrderRows();
 
@@ -556,27 +573,49 @@ function renderOrders() {
     `;
   }).join("") : `<p class="muted">Chưa có sản phẩm nào cần đặt theo ngưỡng hiện tại.</p>`;
 
-  const summary = {};
-  rows.forEach(row => {
-    summary[row.product] ||= { packs: 0, qty: 0, unit: unitName(row.product) };
-    summary[row.product].packs += row.pack.packs;
-    summary[row.product].qty += row.pack.qty;
-  });
+  const groups = groupOrdersByMachine(rows);
+  const machineNames = Object.keys(groups).sort((a, b) => a.localeCompare(b, "vi"));
+  orderSummaryText = machineNames.map(machine => formatMachineOrder(machine, groups[machine])).join("\\n\\n");
 
-  const items = Object.entries(summary).sort((a, b) => a[0].localeCompare(b[0], "vi"));
-  orderSummaryText = items.map(([product, s]) => `${product}: ${s.packs} thùng (${s.qty} ${s.unit})`).join("\n");
-
-  $("#orderSummaryBox").innerHTML = items.length ? `
-    <div class="order-summary-list">
-      ${items.map(([product, s]) => `
-        <div class="summary-line">
-          <span>${product}</span>
-          <b>${s.packs} thùng</b>
-          <small>${s.qty} ${s.unit}</small>
+  $("#orderSummaryBox").innerHTML = machineNames.length ? `
+    <div class="machine-order-list">
+      ${machineNames.map(machine => `
+        <div class="machine-order-card">
+          <div class="machine-order-head">
+            <b>${machine}</b>
+            <button class="mini copy-machine" data-machine="${machine}">Copy ${machine}</button>
+          </div>
+          ${groups[machine].map(row => `
+            <div class="machine-order-line">
+              <span>${row.product}</span>
+              <b>${row.pack.packs} thùng</b>
+              <small>${row.pack.qty} ${row.pack.unit}</small>
+            </div>
+          `).join("")}
         </div>
       `).join("")}
     </div>
   ` : `<p class="muted">Chưa có đơn NCC cần tổng hợp.</p>`;
+
+  $$(".copy-machine").forEach(button => {
+    button.addEventListener("click", () => {
+      const machine = button.dataset.machine;
+      copyText(`Đơn NCC ${machine}:\\n${formatMachineOrder(machine, groups[machine])}`, `Đã copy đơn ${machine}.`);
+    });
+  });
+}
+
+function copyText(text, message) {
+  if (!text) {
+    showToast("Chưa có đơn NCC để copy.");
+    return;
+  }
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast(message || "Đã copy."));
+  } else {
+    showToast(text);
+  }
 }
 
 function copyOrderSummary() {
@@ -584,14 +623,7 @@ function copyOrderSummary() {
     showToast("Chưa có đơn NCC để copy.");
     return;
   }
-
-  const text = `Đơn NCC hôm nay:\n${orderSummaryText}`;
-
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => showToast("Đã copy đơn NCC."));
-  } else {
-    showToast(text);
-  }
+  copyText(`Đơn NCC theo máy:\\n${orderSummaryText}`, "Đã copy toàn bộ đơn theo máy.");
 }
 
 function renderSlow() {
