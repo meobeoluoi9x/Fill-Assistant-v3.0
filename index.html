@@ -9,18 +9,19 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="appShell">
-    <header class="appHeader">
+  <div class="app">
+    <header class="header">
       <div>
         <h1>Fill Assistant</h1>
-        <p>V2.0 - Trợ lý vận hành cabin</p>
+        <p>V2.0 · Trợ lý vận hành cabin</p>
       </div>
       <button id="installBtn" class="btn ghost hidden">Cài app</button>
     </header>
 
-    <nav class="tabs">
+    <nav class="tabs" aria-label="Điều hướng">
       <button class="tab active" data-view="home">Hôm nay</button>
-      <button class="tab" data-view="fill">Fill</button>
+      <button class="tab" data-view="quickfill">Fill nhanh</button>
+      <button class="tab" data-view="fill">Nhập Fill</button>
       <button class="tab" data-view="ncc">NCC</button>
       <button class="tab" data-view="cabin">Cabin</button>
       <button class="tab" data-view="adjust">Điều chỉnh</button>
@@ -30,43 +31,54 @@
 
     <main>
       <section id="home" class="view active">
-        <div class="hero card">
+        <article class="card hero">
           <div class="heroTop">
             <div>
               <h2>Chào Trung 👋</h2>
               <p id="todayText">Hôm nay</p>
             </div>
-            <div id="routeBadge" class="routeBadge"></div>
+            <div id="routeBadge" class="routeBadge">Tuyến</div>
           </div>
           <div id="routeMachines" class="machineChips"></div>
-        </div>
+        </article>
 
-        <div class="summaryGrid" id="summaryBox"></div>
+        <div id="summaryBox" class="summaryGrid"></div>
 
-        <div class="card">
+        <article class="card">
           <div class="sectionTitle">
             <h2>Gợi ý đặt NCC theo máy</h2>
-            <span class="hint">Cabin → Thùng</span>
+            <span class="hint">Theo cabin hiện tại</span>
           </div>
           <div id="orderBox"></div>
-        </div>
+        </article>
 
-        <div class="card important">
+        <article class="card important">
           <div class="sectionTitle">
             <h2>Tổng hợp đặt NCC</h2>
-            <span class="hint">Dùng để nhắn NCC</span>
+            <button id="copyOrderBtn" class="btn smallBtn">Copy đơn</button>
           </div>
           <div id="orderSummaryBox"></div>
-        </div>
+        </article>
 
-        <div class="card">
+        <article class="card">
           <h2>Hàng bán chậm / đang học</h2>
           <div id="slowBox"></div>
-        </div>
+        </article>
+      </section>
+
+      <section id="quickfill" class="view">
+        <article class="card">
+          <div class="sectionTitle">
+            <h2>Fill nhanh theo máy</h2>
+            <span class="hint">Vuốt xuống từng slot</span>
+          </div>
+          <label>Máy <select id="quickMachine"></select></label>
+          <div id="quickFillBox" class="quickFillBox"></div>
+        </article>
       </section>
 
       <section id="fill" class="view">
-        <div class="card">
+        <article class="card">
           <h2>Nhập số lượng đã fill</h2>
           <form id="fillForm">
             <label>Ngày <input name="date" type="date" required /></label>
@@ -77,15 +89,15 @@
             <div class="quickPad" data-target="fillForm"></div>
             <button type="submit" class="btn primary">Lưu fill</button>
           </form>
-        </div>
-        <div class="card">
+        </article>
+        <article class="card">
           <h2>Lịch sử Fill</h2>
           <div id="fillHistory"></div>
-        </div>
+        </article>
       </section>
 
       <section id="ncc" class="view">
-        <div class="card">
+        <article class="card">
           <h2>Nhập hàng NCC thực nhận</h2>
           <form id="nccForm">
             <label>Ngày <input name="date" type="date" required /></label>
@@ -95,27 +107,27 @@
             <div class="quickPad" data-target="nccForm"></div>
             <button type="submit" class="btn primary">Lưu NCC</button>
           </form>
-        </div>
-        <div class="card">
+        </article>
+        <article class="card">
           <h2>Lịch sử NCC</h2>
           <div id="nccHistory"></div>
-        </div>
+        </article>
       </section>
 
       <section id="cabin" class="view">
-        <div class="card">
+        <article class="card">
           <div class="sectionTitle">
             <h2>Tồn cabin hiện tại</h2>
-            <span class="hint">Âm sẽ hiển thị 0 + cảnh báo</span>
+            <span class="hint">Âm → hiện 0 + cảnh báo</span>
           </div>
           <div id="cabinBox"></div>
-        </div>
+        </article>
       </section>
 
       <section id="adjust" class="view">
-        <div class="card">
+        <article class="card">
           <h2>Điều chỉnh cabin</h2>
-          <p class="muted">Dùng khi kiểm kê thực tế bị lệch. Không sửa trực tiếp số tồn cabin.</p>
+          <p class="muted">Dùng khi kiểm kê bị lệch. Không sửa trực tiếp số tồn cabin.</p>
           <form id="adjustForm">
             <label>Ngày <input name="date" type="date" required /></label>
             <label>Máy <select name="machine" required></select></label>
@@ -133,23 +145,23 @@
             </label>
             <button type="submit" class="btn primary">Lưu điều chỉnh</button>
           </form>
-        </div>
-        <div class="card">
+        </article>
+        <article class="card">
           <h2>Lịch sử điều chỉnh</h2>
           <div id="adjustHistory"></div>
-        </div>
+        </article>
       </section>
 
       <section id="audit" class="view">
-        <div class="card">
+        <article class="card">
           <h2>Kiểm tra dữ liệu</h2>
           <p class="muted">Phát hiện cabin âm hoặc lệch dữ liệu.</p>
           <div id="auditBox"></div>
-        </div>
+        </article>
 
-        <div class="card">
+        <article class="card">
           <h2>Đối chiếu kiểm kê</h2>
-          <p class="muted">Nhập tồn cabin thực tế, app sẽ tự tạo điều chỉnh.</p>
+          <p class="muted">Nhập tồn cabin thực tế, app tự tạo điều chỉnh.</p>
           <form id="stocktakeForm">
             <label>Ngày <input name="date" type="date" required /></label>
             <label>Máy <select name="machine" required></select></label>
@@ -157,25 +169,26 @@
             <label>Tồn cabin thực tế <input name="actual" type="number" min="0" step="1" inputmode="numeric" required /></label>
             <button type="submit" class="btn primary">Tạo điều chỉnh</button>
           </form>
-        </div>
+        </article>
       </section>
 
       <section id="backup" class="view">
-        <div class="card">
+        <article class="card">
           <h2>Sao lưu / phục hồi</h2>
-          <p class="muted">Dữ liệu hiện lưu trên trình duyệt. Nên xuất JSON cuối ngày.</p>
+          <p class="muted">Bản hiện tại lưu trên trình duyệt. Nên xuất JSON cuối ngày.</p>
           <div class="buttonRow">
             <button id="exportBtn" class="btn primary">Xuất dữ liệu JSON</button>
             <label class="fileBtn">Nhập dữ liệu JSON
               <input id="importInput" type="file" accept="application/json" />
             </label>
           </div>
-        </div>
-        <div class="card dangerZone">
+        </article>
+
+        <article class="card dangerZone">
           <h2>Reset dữ liệu</h2>
-          <p class="muted">Chỉ dùng khi muốn xóa toàn bộ dữ liệu nhập trên máy này.</p>
-          <button id="resetDemo" class="btn danger">Reset toàn bộ dữ liệu</button>
-        </div>
+          <p class="muted">Chỉ dùng khi muốn xóa dữ liệu nhập trên thiết bị này.</p>
+          <button id="resetDemo" class="btn danger">Reset về dữ liệu gốc</button>
+        </article>
       </section>
     </main>
   </div>
