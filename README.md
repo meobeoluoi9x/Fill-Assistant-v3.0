@@ -134,3 +134,24 @@ Thay đổi lớn:
 - App nhớ máy cuối cùng bạn đang xem.
 
 Dữ liệu Fill/NCC cũ được giữ bằng cơ chế migrate localStorage từ các bản V2.x.
+
+
+## V3.1 - Kiểm kê cabin ngay trên Dashboard
+
+Thêm chức năng `Kiểm kê cabin` tại máy đang chọn.
+
+Cách dùng:
+1. Vào Dashboard.
+2. Chọn máy.
+3. Ở phần `Cabin máy đang chọn`, bấm `Kiểm kê cabin`.
+4. Nhập số tồn thực tế của từng sản phẩm.
+5. Bấm `Lưu`.
+
+App tự tính:
+```text
+Chênh lệch = Tồn thực tế - Tồn app đang tính
+```
+
+Sau đó tự tạo bản ghi `Điều chỉnh` với lý do `Kiểm kê`.
+
+Bạn không cần tự tính + hoặc - nữa.

@@ -32,3 +32,15 @@
 .machine-dashboard-tab.red{box-shadow:inset 0 -4px 0 #ef4444}
 .machine-dashboard-tab.yellow{box-shadow:inset 0 -4px 0 #f59e0b}
 .machine-dashboard-tab.green{box-shadow:inset 0 -4px 0 #22c55e}
+
+
+/* V3.1 - Dashboard cabin audit */
+.cabin-audit-list{display:grid;gap:10px}
+.cabin-audit-row{display:grid;grid-template-columns:1fr 92px 64px;gap:8px;align-items:center;border:1px solid #e2e8f0;background:#f8fafc;border-radius:16px;padding:10px}
+.cabin-audit-row b{display:block}
+.cabin-audit-row span{display:block;color:#64748b;font-size:12px;font-weight:800;margin-top:2px}
+.cabin-audit-row input{font-size:18px;font-weight:900;text-align:center;padding:10px}
+.cabin-audit-row .save-audit{background:#16a34a}
+@media(max-width:520px){
+  .cabin-audit-row{grid-template-columns:1fr 78px 58px}
+}

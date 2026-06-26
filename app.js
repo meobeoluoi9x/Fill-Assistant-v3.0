@@ -1,6 +1,6 @@
-const APP_VERSION = "3.0.0";
-const STORAGE_KEY = "fill_assistant_v30";
-const OLD_KEYS = ["fill_assistant_v24","fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
+const APP_VERSION = "3.1.0";
+const STORAGE_KEY = "fill_assistant_v31";
+const OLD_KEYS = ["fill_assistant_v30","fill_assistant_v24","fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 
 let deferredPrompt = null;
 let lastAction = null;
@@ -239,6 +239,13 @@ function setupForms() {
   $("#exportBtn").addEventListener("click", exportJSON);
   $("#importInput").addEventListener("change", importJSON);
   $("#copyOrderBtn").addEventListener("click", copyOrderSummary);
+  $("#showCabinAuditBtn")?.addEventListener("click", () => {
+    $("#dashboardCabinAuditCard").classList.remove("hidden");
+    renderDashboardCabinAudit();
+  });
+  $("#hideCabinAuditBtn")?.addEventListener("click", () => {
+    $("#dashboardCabinAuditCard").classList.add("hidden");
+  });
 }
 
 function updateSlotOptions() {
@@ -864,6 +871,67 @@ function renderSelectedCabin() {
   }).join("") : `<p class="muted">Máy này chưa có dữ liệu cabin.</p>`;
 }
 
+function renderDashboardCabinAudit() {
+  const machine = activeDashboardMachine;
+  const cab = displayCabin();
+  const items = Object.entries(cab)
+    .map(([key, qty]) => {
+      const [m, product] = key.split("||");
+      return { machine: m, product, qty };
+    })
+    .filter(item => item.machine === machine)
+    .sort((a, b) => a.product.localeCompare(b.product, "vi"));
+
+  const box = $("#dashboardCabinAuditBox");
+  if (!box) return;
+
+  box.innerHTML = items.length ? `
+    <div class="cabin-audit-list">
+      ${items.map(item => `
+        <div class="cabin-audit-row" data-machine="${item.machine}" data-product="${item.product}" data-current="${item.qty}">
+          <div>
+            <b>${item.product}</b>
+            <span>Hiện tại: ${item.qty} ${unitName(item.product)}</span>
+          </div>
+          <input type="number" min="0" step="1" inputmode="numeric" value="${item.qty}" />
+          <button class="mini save-audit">Lưu</button>
+        </div>
+      `).join("")}
+    </div>
+  ` : `<p class="muted">Máy này chưa có dữ liệu cabin.</p>`;
+
+  $$(".save-audit", box).forEach(button => {
+    button.addEventListener("click", () => {
+      const row = button.closest(".cabin-audit-row");
+      const machine = row.dataset.machine;
+      const product = row.dataset.product;
+      const current = Number(row.dataset.current || 0);
+      const actual = Number($("input", row).value || 0);
+      const diff = actual - current;
+
+      if (diff === 0) {
+        showToast(`${product}: không có chênh lệch.`);
+        return;
+      }
+
+      const item = {
+        id: makeId(),
+        date: todayISO(),
+        machine,
+        product,
+        qty: diff,
+        reason: "Kiểm kê"
+      };
+
+      state.adjustLogs.push(item);
+      lastAction = { type: "deleteAdjust", index: state.adjustLogs.length - 1, item };
+      saveState();
+      $("#dashboardCabinAuditCard").classList.remove("hidden");
+      showToast(`Đã điều chỉnh ${product}: ${diff > 0 ? "+" : ""}${diff}.`, true);
+    });
+  });
+}
+
 function renderAll() {
   renderRoute();
   renderSummary();
@@ -874,6 +942,9 @@ function renderAll() {
   renderAudit();
   renderQuickFill();
   renderSelectedCabin();
+  if (!$("#dashboardCabinAuditCard")?.classList.contains("hidden")) {
+    renderDashboardCabinAudit();
+  }
 }
 
 function exportJSON() {
