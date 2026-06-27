@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
-  <title>Fill Assistant V3.2</title>
-  <link rel="manifest" href="manifest.json" />
-  <link rel="stylesheet" href="styles.css" />
+  <title>Fill Assistant V3.4.3</title>
+  <link rel="manifest" href="manifest.json?v=3.4.3" />
+  <link rel="stylesheet" href="styles.css?v=3.4.3" />
 </head>
 <body>
   <div class="app">
     <header class="app-header">
       <div>
         <h1>Fill Assistant</h1>
-        <p>V3.2 · Tổng thùng NCC</p>
+        <p>V3.3.2 · Xuất CSV NCC</p>
       </div>
       <button id="installBtn" class="btn ghost hidden">Cài app</button>
     </header>
@@ -40,17 +40,10 @@
             <span id="routeBadge" class="route-badge">Theo máy</span>
           </div>
           <div id="routeMachines" class="chips"></div>
+          <div id="priorityBox" class="priority-box"></div>
         </article>
 
         <div id="summaryBox" class="summary-grid"></div>
-
-        <article class="card">
-          <div class="section-head">
-            <h2>Gợi ý đặt NCC</h2>
-            <span class="hint">Máy đang chọn</span>
-          </div>
-          <div id="orderBox"></div>
-        </article>
 
         <article class="card highlight">
           <div class="section-head">
@@ -61,17 +54,25 @@
         </article>
 
         <article class="card">
-          <h2>Hàng bán chậm / đang học của máy</h2>
-          <div id="slowBox"></div>
+          <div class="section-head">
+            <h2>Tồn thấp / cần chú ý</h2>
+            <span class="hint">Ưu tiên kiểm tra</span>
+          </div>
+          <div id="orderBox"></div>
         </article>
 
-        <article class="card">
+        <details class="card dashboard-detail">
+          <summary>Hàng bán chậm / đang học của máy</summary>
+          <div id="slowBox"></div>
+        </details>
+
+        <details class="card dashboard-detail">
+          <summary>Cabin đầy đủ của máy</summary>
           <div class="section-head">
-            <h2>Cabin máy đang chọn</h2>
             <button id="showCabinAuditBtn" class="btn small">Kiểm kê cabin</button>
           </div>
           <div id="selectedCabinBox"></div>
-        </article>
+        </details>
 
         <article id="dashboardCabinAuditCard" class="card hidden">
           <div class="section-head">
@@ -87,7 +88,7 @@
         <article class="card">
           <div class="section-head">
             <h2>Fill nhanh theo máy</h2>
-            <span class="hint">Nhập từng slot, lưu ngay</span>
+            <span class="hint">Nhập nhiều slot rồi lưu một lượt</span>
           </div>
           <label>Máy <select id="quickMachine"></select></label>
           <div id="quickFillBox" class="quick-fill-box"></div>
@@ -213,7 +214,7 @@
     </main>
   </div>
 
-  <script src="data.js"></script>
-  <script src="app.js"></script>
+  <script src="data.js?v=3.4.3"></script>
+  <script src="app.js?v=3.4.3"></script>
 </body>
 </html>
