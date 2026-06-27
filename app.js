@@ -1,4 +1,4 @@
-const APP_VERSION = "3.4.3";
+const APP_VERSION = "3.5.0";
 const STORAGE_KEY = "fill_assistant_v32";
 const OLD_KEYS = ["fill_assistant_v31","fill_assistant_v30","fill_assistant_v24","fill_assistant_v23","fill_assistant_v22","fill_assistant_v21","fill_assistant_v2_production","fill_assistant_v2","fill_assistant_v1","fill_assistant_v1_edit_undo","fill_assistant_v0"];
 const SYNC_CONFIG_KEY = "fill_assistant_supabase_config";
@@ -145,7 +145,7 @@ function isAquaProduct(product) {
 }
 
 function unitName(product) {
-  return isAquaProduct(product) ? "chai" : "lon";
+  return "sản phẩm";
 }
 
 function packText(qty, product) {
@@ -1795,6 +1795,485 @@ function importJSON(event) {
   reader.readAsText(file);
 }
 
+/* V3.5.0 - consolidated workflow */
+let activeHistoryType = "fill";
+
+function activeLogRows(key) {
+  return state[key].filter(item => !item.deleted_at);
+}
+
+function touchRecord(item, deleted = false) {
+  const now = new Date().toISOString();
+  item.id ||= makeId();
+  item.created_at ||= now;
+  item.updated_at = now;
+  item.device_id ||= deviceId();
+  item._sync = "pending";
+  if (deleted) item.deleted_at = now;
+  return item;
+}
+
+function markStatePending() {
+  ["fillLogs", "nccLogs", "adjustLogs"].forEach(key => {
+    state[key].forEach(item => {
+      if (!item.created_at || !item.updated_at) touchRecord(item, Boolean(item.deleted_at));
+      item.device_id ||= deviceId();
+    });
+  });
+}
+
+function saveState() {
+  markStatePending();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  renderAll();
+  queueAutoSync();
+}
+
+function unitName() {
+  return "sản phẩm";
+}
+
+function currentCabin() {
+  const map = {};
+  const add = (machine, product, qty) => {
+    if (!machine || !product) return;
+    const key = `${machine}||${product}`;
+    map[key] = (map[key] || 0) + Number(qty || 0);
+  };
+  config().initialCabin?.forEach(x => add(x.machine, x.product, x.qty));
+  activeLogRows("nccLogs").forEach(x => add(x.machine, x.product, x.qty));
+  activeLogRows("adjustLogs").forEach(x => add(x.machine, x.product, x.qty));
+  activeLogRows("fillLogs").forEach(x => add(x.machine, x.product, -x.qty));
+  return map;
+}
+
+function getRecentFill(product, machine, days) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return activeLogRows("fillLogs")
+    .filter(log => log.product === product && log.machine === machine && new Date(log.date) >= cutoff)
+    .reduce((sum, log) => sum + Number(log.qty || 0), 0);
+}
+
+function openDrawer() {
+  $("#sideNav").classList.add("open");
+  $("#navOverlay").hidden = false;
+  $("#menuToggle").setAttribute("aria-expanded", "true");
+  $("#sideNav").setAttribute("aria-hidden", "false");
+  document.body.classList.add("drawer-open");
+}
+
+function closeDrawer() {
+  $("#sideNav").classList.remove("open");
+  $("#navOverlay").hidden = true;
+  $("#menuToggle").setAttribute("aria-expanded", "false");
+  $("#sideNav").setAttribute("aria-hidden", "true");
+  document.body.classList.remove("drawer-open");
+}
+
+function activateView(name) {
+  $$(".tab").forEach(tab => tab.classList.toggle("active", tab.dataset.view === name));
+  $$(".view").forEach(view => view.classList.toggle("active", view.id === name));
+  if (name === "adjust") renderStocktake();
+  if (name === "history") renderHistory();
+  closeDrawer();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function setupTabs() {
+  $$(".tab").forEach(button => button.addEventListener("click", () => activateView(button.dataset.view)));
+  $("#menuToggle")?.addEventListener("click", openDrawer);
+  $("#menuClose")?.addEventListener("click", closeDrawer);
+  $("#navOverlay")?.addEventListener("click", closeDrawer);
+  document.addEventListener("keydown", event => { if (event.key === "Escape") closeDrawer(); });
+  $$(".history-tab").forEach(button => button.addEventListener("click", () => {
+    activeHistoryType = button.dataset.history;
+    $$(".history-tab").forEach(tab => tab.classList.toggle("active", tab === button));
+    renderHistory();
+  }));
+}
+
+function allProducts() {
+  return unique([
+    ...Object.keys(config().products || {}),
+    ...config().slots.map(slot => slot.product),
+    ...config().initialCabin.map(item => item.product)
+  ]).sort((a, b) => a.localeCompare(b, "vi"));
+}
+
+function setupSelects() {
+  $$("input[type='date']").forEach(input => { if (!input.value) input.value = todayISO(); });
+  const machines = config().machines.map(machine => machine.name);
+  const machineOptions = machines.map(machine => `<option>${machine}</option>`).join("");
+  $("#nccForm select[name='machine']").innerHTML = machineOptions;
+  $("#nccForm select[name='product']").innerHTML = allProducts().map(product => `<option>${product}</option>`).join("");
+  $("#quickMachine").innerHTML = machineOptions;
+  $("#stocktakeMachine").innerHTML = machineOptions;
+  $("#historyMachine").innerHTML = `<option value="">Tất cả</option>${machineOptions}`;
+  $("#historyDate").value = "";
+  $("#quickMachine").addEventListener("change", renderQuickFill);
+  $("#stocktakeMachine").addEventListener("change", renderStocktake);
+}
+
+function nccBoxes(item) {
+  const pack = productInfo(item.product).pack;
+  return Number(item.boxes ?? Math.round(Number(item.qty || 0) / pack));
+}
+
+function updateNccConversion() {
+  const form = $("#nccForm");
+  const boxes = Number(form.qty.value || 0);
+  const total = boxes * productInfo(form.product.value).pack;
+  $("#nccConversion").textContent = `${boxes} thùng = ${total} sản phẩm`;
+}
+
+function setupForms() {
+  setupSelects();
+  const nccForm = $("#nccForm");
+  nccForm.addEventListener("submit", event => { event.preventDefault(); saveNccFromForm(event.target); });
+  nccForm.product.addEventListener("change", updateNccConversion);
+  nccForm.qty.addEventListener("input", updateNccConversion);
+  $("#stocktakeBox").addEventListener("click", event => {
+    if (event.target.closest("#saveStocktakeBtn")) saveStocktakeBatch();
+    if (event.target.closest("#resetStocktakeBtn")) renderStocktake();
+  });
+  ["historyDate", "historyMachine", "historyProduct"].forEach(id => {
+    $("#" + id).addEventListener(id === "historyProduct" ? "input" : "change", renderHistory);
+  });
+  $("#resetBtn").addEventListener("click", () => {
+    if (!confirm("Reset về dữ liệu gốc? Dữ liệu trên thiết bị này sẽ bị xóa.")) return;
+    state = normalizeState(window.FILL_STATE || {});
+    saveState();
+  });
+  $("#exportBtn").addEventListener("click", exportJSON);
+  $("#importInput").addEventListener("change", importJSON);
+  $("#copyOrderBtn").addEventListener("click", copyOrderSummary);
+  updateNccConversion();
+}
+
+function setupQuickPads() {
+  $$(".quickPad").forEach(pad => {
+    pad.innerHTML = [1, 2, 3, 5].map(n => `<button type="button" class="quick-btn" data-val="${n}">+${n}</button>`).join("");
+    pad.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const input = $("#" + pad.dataset.target + " input[name='qty']");
+      input.value = Number(input.value || 0) + Number(button.dataset.val || 0);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  });
+}
+
+function saveNccFromForm(form) {
+  const boxes = Number(form.qty.value);
+  if (!Number.isInteger(boxes) || boxes <= 0) {
+    showToast("Số thùng phải là số nguyên lớn hơn 0.");
+    return;
+  }
+  const item = touchRecord({
+    id: makeId(), date: form.date.value, machine: form.machine.value,
+    product: form.product.value, boxes, qty: boxes * productInfo(form.product.value).pack
+  });
+  state.nccLogs.push(item);
+  form.qty.value = "";
+  updateNccConversion();
+  saveState();
+  showToast(`Đã lưu ${boxes} thùng = ${item.qty} sản phẩm.`);
+}
+
+function updateQuickFillPending() {
+  const pending = getQuickFillEntries();
+  const total = pending.reduce((sum, item) => sum + item.qty, 0);
+  const label = $("#quickFillPending");
+  if (label) label.textContent = `${pending.length} slot · ${total} sản phẩm`;
+}
+
+function saveQuickFillBatch() {
+  const entries = getQuickFillEntries();
+  if (!entries.length) return showToast("Chưa nhập số lượng fill.");
+  const large = entries.filter(item => item.qty > 50);
+  if (large.length && !confirm(`Có số lượng lớn ở ${large.length} slot. Lưu tất cả?`)) return;
+  const date = $("#quickDate").value || todayISO();
+  entries.forEach(item => state.fillLogs.push(touchRecord({
+    id: makeId(), date, machine: item.machine, slot: item.slot, product: item.product, qty: item.qty
+  })));
+  entries.forEach(item => { $("input", item.card).value = ""; });
+  saveState();
+  showToast(`Đã lưu ${entries.length} slot fill.`);
+}
+
+function renderStocktake() {
+  const machine = $("#stocktakeMachine").value;
+  const cab = displayCabin();
+  const items = Object.entries(cab).map(([key, qty]) => {
+    const [m, product] = key.split("||");
+    return { machine: m, product, qty };
+  }).filter(item => item.machine === machine).sort((a, b) => a.product.localeCompare(b.product, "vi"));
+  $("#stocktakeBox").innerHTML = items.length ? `
+    <div class="stocktake-list">${items.map(item => `
+      <label class="stocktake-row" data-product="${htmlEscape(item.product)}" data-current="${item.qty}">
+        <span><b>${item.product}</b><small>Hiện tại: ${item.qty} sản phẩm</small></span>
+        <input type="number" min="0" step="1" inputmode="numeric" value="${item.qty}" />
+      </label>`).join("")}</div>
+    <div class="stocktake-actions"><button id="resetStocktakeBtn" type="button" class="btn ghost">Nhập lại</button><button id="saveStocktakeBtn" type="button" class="btn primary">Lưu kiểm kê</button></div>
+  ` : `<p class="muted">Máy này chưa có dữ liệu cabin.</p>`;
+}
+
+function saveStocktakeBatch() {
+  const machine = $("#stocktakeMachine").value;
+  const date = $("#stocktakeDate").value || todayISO();
+  const batchId = makeId();
+  const changes = $$(".stocktake-row", $("#stocktakeBox")).map(row => {
+    const current = Number(row.dataset.current || 0);
+    const actual = Number($("input", row).value || 0);
+    return { product: row.dataset.product, current, actual, diff: actual - current };
+  }).filter(item => item.diff !== 0);
+  if (!changes.length) return showToast("Không có chênh lệch để lưu.");
+  changes.forEach(change => state.adjustLogs.push(touchRecord({
+    id: makeId(), batch_id: batchId, date, machine, product: change.product,
+    qty: change.diff, actual: change.actual, reason: "Kiểm kê cabin"
+  })));
+  saveState();
+  renderStocktake();
+  showToast(`Đã lưu kiểm kê, ${changes.length} sản phẩm có chênh lệch.`);
+}
+
+function historySource() {
+  return activeHistoryType === "fill" ? ["fillLogs", "Nhập Fill"]
+    : activeHistoryType === "ncc" ? ["nccLogs", "Nhập hàng"]
+    : ["adjustLogs", "Kiểm kê cabin"];
+}
+
+function renderHistory() {
+  const [key, label] = historySource();
+  const fromDate = $("#historyDate")?.value || "";
+  const machine = $("#historyMachine")?.value || "";
+  const query = ($("#historyProduct")?.value || "").trim().toLocaleLowerCase("vi");
+  const rows = activeLogRows(key).filter(item => (!fromDate || item.date >= fromDate)
+    && (!machine || item.machine === machine)
+    && (!query || String(item.product).toLocaleLowerCase("vi").includes(query)))
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
+  $("#historyCount").textContent = `${rows.length} bản ghi`;
+  $("#historyList").innerHTML = rows.map(item => {
+    const amount = activeHistoryType === "ncc"
+      ? `${nccBoxes(item)} thùng · ${item.qty} sản phẩm`
+      : activeHistoryType === "adjust"
+        ? `${item.qty > 0 ? "+" : ""}${item.qty} sản phẩm`
+        : `${item.qty} sản phẩm`;
+    const detail = activeHistoryType === "fill" ? `Slot ${item.slot} · ${item.product}`
+      : activeHistoryType === "adjust" ? `${item.product} · ${item.reason || "Kiểm kê cabin"}` : item.product;
+    const type = activeHistoryType === "ncc" ? "Ncc" : activeHistoryType === "adjust" ? "Adjust" : "Fill";
+    return `<div class="history-row"><div><b>${item.date} · ${item.machine}</b><span>${detail}</span></div><strong>${amount}</strong><div class="actions"><button class="mini" onclick="edit${type}('${item.id}')">Sửa</button><button class="mini danger" onclick="delete${type}('${item.id}')">Xóa</button></div></div>`;
+  }).join("") || `<p class="muted">Chưa có lịch sử ${label}.</p>`;
+}
+
+function editFill(id) {
+  const item = state.fillLogs.find(row => row.id === id && !row.deleted_at);
+  if (!item) return;
+  const value = prompt("Số sản phẩm đã fill:", item.qty);
+  if (value === null) return;
+  const qty = Number(value);
+  if (!Number.isFinite(qty) || qty < 0) return showToast("Số lượng không hợp lệ.");
+  item.qty = qty; touchRecord(item); saveState(); showToast("Đã cập nhật Nhập Fill.");
+}
+
+function editNcc(id) {
+  const item = state.nccLogs.find(row => row.id === id && !row.deleted_at);
+  if (!item) return;
+  const value = prompt("Số thùng nhập hàng:", nccBoxes(item));
+  if (value === null) return;
+  const boxes = Number(value);
+  if (!Number.isInteger(boxes) || boxes < 0) return showToast("Số thùng không hợp lệ.");
+  item.boxes = boxes; item.qty = boxes * productInfo(item.product).pack;
+  touchRecord(item); saveState(); showToast("Đã cập nhật Nhập hàng.");
+}
+
+function editAdjust(id) {
+  const item = state.adjustLogs.find(row => row.id === id && !row.deleted_at);
+  if (!item) return;
+  const value = prompt("Chênh lệch kiểm kê theo sản phẩm:", item.qty);
+  if (value === null) return;
+  const qty = Number(value);
+  if (!Number.isFinite(qty)) return showToast("Số lượng không hợp lệ.");
+  item.qty = qty; touchRecord(item); saveState(); showToast("Đã cập nhật kiểm kê cabin.");
+}
+
+function deleteHistoryRecord(key, id, label) {
+  const item = state[key].find(row => row.id === id && !row.deleted_at);
+  if (!item || !confirm(`Xóa bản ghi ${label} này?`)) return;
+  touchRecord(item, true);
+  lastAction = { type: "restoreDeleted", item };
+  saveState(); showToast(`Đã xóa ${label}.`, true);
+}
+
+function deleteFill(id) { deleteHistoryRecord("fillLogs", id, "Nhập Fill"); }
+function deleteNcc(id) { deleteHistoryRecord("nccLogs", id, "Nhập hàng"); }
+function deleteAdjust(id) { deleteHistoryRecord("adjustLogs", id, "kiểm kê cabin"); }
+
+function undoLastAction() {
+  if (!lastAction) return;
+  if (lastAction.type === "restoreDeleted") {
+    delete lastAction.item.deleted_at;
+    touchRecord(lastAction.item);
+  }
+  lastAction = null; saveState(); showToast("Đã hoàn tác.");
+}
+
+function openStocktake(machine) {
+  activateView("adjust");
+  $("#stocktakeMachine").value = machine;
+  renderStocktake();
+}
+
+function renderAudit() {
+  const negatives = negativeCabinItems();
+  $("#auditBox").innerHTML = negatives.length ? negatives.map(item => `
+    <div class="pill red"><b>${item.machine} - ${item.product}</b><div class="small">Tồn tính toán: ${item.raw} sản phẩm · Lệch ${item.shortage} sản phẩm</div><button class="mini" onclick="openStocktake('${item.machine}')">Mở kiểm kê cabin</button></div>
+  `).join("") : `<div class="pill green"><b>Dữ liệu ổn</b><div class="small">Không có cabin nào bị âm.</div></div>`;
+}
+
+function renderSummary() {
+  const machine = activeDashboardMachine;
+  const negatives = negativeCabinItems().filter(item => item.machine === machine).length;
+  const orders = buildOrderRows().filter(row => row.machine === machine);
+  const packs = totalPacks(orders);
+  const attention = dashboardAttentionRows(machine);
+  const health = machineHealth(machine);
+  $("#priorityBox").innerHTML = `<div><span>Ưu tiên hôm nay</span><b>${packs > 0 ? `${machine}: cần đặt ${packs} thùng` : `${machine}: chưa cần nhập hàng`}</b></div><strong class="${health.cls}">${health.label}</strong>`;
+  $("#summaryBox").innerHTML = [
+    ["Thùng cần nhập", packs], ["Sản phẩm cần nhập", orders.length], ["Cần kiểm tra", attention.length], ["Lệch cabin", negatives]
+  ].map(([label, value]) => `<div class="summary-card action-metric"><span>${label}</span><b>${value}</b></div>`).join("");
+}
+
+function exportNccCsv() {
+  const machines = selectedNccExportMachines();
+  const rows = buildOrderRows().filter(row => machines.includes(row.machine));
+  if (!machines.length) return showToast("Chưa chọn máy để xuất CSV.");
+  if (!rows.length) return showToast("Các máy đã chọn chưa có sản phẩm cần nhập.");
+  const grouped = groupOrdersByMachine(rows);
+  const csvRows = [["Đơn nhập hàng - Fill Assistant"], [`Xuất lúc: ${new Date().toLocaleString("vi-VN")}`], [], ["Máy", "Sản phẩm", "Số thùng", "Quy đổi sản phẩm", "Tồn cabin"]];
+  machines.forEach(machine => {
+    (grouped[machine] || []).forEach(row => csvRows.push([machine, row.product, row.pack.packs, row.pack.qty, row.qty]));
+    if ((grouped[machine] || []).length) csvRows.push([`Tổng ${machine}`, "", totalPacks(grouped[machine]), "", ""], []);
+  });
+  csvRows.push(["TỔNG TẤT CẢ", "", totalPacks(rows), "", ""]);
+  const csv = "\ufeff" + csvRows.map(row => row.map(csvCell).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `don-nhap-hang-${todayISO()}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  showToast(`Đã xuất CSV ${machines.length} máy.`);
+}
+
+function renderOrders() {
+  const machine = activeDashboardMachine;
+  const rows = buildOrderRows().filter(row => row.machine === machine);
+  const attention = dashboardAttentionRows(machine);
+  const packsTotal = totalPacks(rows);
+  const exportMachines = nccMachinesWithOrders();
+  orderSummaryText = rows.length ? `${formatMachineOrder(machine, rows)}\n\nTỔNG: ${packsTotal} THÙNG` : "";
+  $("#orderSummaryBox").innerHTML = rows.length ? `
+    <div class="dashboard-order-head"><div><span>Đơn nhập hàng ${machine}</span><b>${packsTotal} thùng</b></div><small>${packsTotal} thùng cần đặt</small></div>
+    <div class="dashboard-order-list">${rows.map(row => `<div class="dashboard-order-row"><span>${row.product}</span><b>${row.pack.packs} thùng</b><small>${row.pack.qty} sản phẩm</small></div>`).join("")}</div>
+    <div class="excel-export-box"><div class="excel-export-head"><b>Xuất đơn nhập hàng</b><button type="button" id="selectAllNccMachines" class="mini">Chọn tất cả</button></div>
+      <div id="nccExportMachines" class="machine-check-list">${exportMachines.map(name => `<label><input type="checkbox" value="${htmlEscape(name)}" ${name === machine ? "checked" : ""} /><span>${name}</span></label>`).join("")}</div>
+      <button type="button" id="exportNccCsvBtn" class="btn primary">Xuất CSV mở bằng Excel</button></div>
+  ` : `<div class="empty-state"><b>${machine || "Máy này"} đang ổn</b><span>Chưa có sản phẩm nào cần nhập hàng.</span></div>`;
+  $("#orderBox").innerHTML = attention.length ? `<div class="attention-list">${attention.slice(0, 12).map(item => {
+    const level = item.raw < 0 ? "red" : item.qty <= 2 ? "red" : item.qty <= 12 ? "yellow" : "blue";
+    return `<div class="attention-row ${level}"><div><b>${item.product}</b><span>${item.raw < 0 ? `Lệch ${Math.abs(item.raw)}` : `Tồn ${item.qty}`} sản phẩm</span></div><strong>${item.order > 0 ? `${item.pack.packs} thùng` : "Kiểm tra"}</strong></div>`;
+  }).join("")}</div>` : `<div class="empty-state"><b>Không có tồn thấp</b><span>Máy này chưa có mục nào cần chú ý.</span></div>`;
+  $("#exportNccCsvBtn")?.addEventListener("click", exportNccCsv);
+  $("#selectAllNccMachines")?.addEventListener("click", () => {
+    const inputs = $$("#nccExportMachines input"); const check = inputs.some(input => !input.checked); inputs.forEach(input => { input.checked = check; });
+  });
+}
+
+function copyOrderSummary() {
+  if (!orderSummaryText) return showToast("Chưa có đơn nhập hàng để copy.");
+  copyText(`Đơn nhập hàng ${activeDashboardMachine}:\n${orderSummaryText}`, `Đã copy đơn ${activeDashboardMachine}.`);
+}
+
+function syncTables() {
+  return [
+    { table: "fill_logs", key: "fillLogs", fields: ["id", "date", "machine", "slot", "product", "qty", "created_at", "updated_at", "deleted_at", "device_id", "user_id"] },
+    { table: "ncc_logs", key: "nccLogs", fields: ["id", "date", "machine", "product", "qty", "boxes", "created_at", "updated_at", "deleted_at", "device_id", "user_id"] },
+    { table: "adjust_logs", key: "adjustLogs", fields: ["id", "batch_id", "date", "machine", "product", "qty", "actual", "reason", "created_at", "updated_at", "deleted_at", "device_id", "user_id"] }
+  ];
+}
+
+function ensureSyncView() {
+  $(".app-header p").textContent = "V3.5.0 - Tự động đồng bộ";
+  const cfg = syncConfig();
+  $("#syncConfigCard")?.classList.toggle("hidden", !isSyncAdminMode());
+  if ($("#syncConfigForm")) { $("#syncConfigForm").url.value = cfg.url || ""; $("#syncConfigForm").key.value = cfg.key || ""; }
+}
+
+function renderSyncStatus() {
+  const configured = Boolean(syncConfig().url && syncConfig().key);
+  const pending = pendingSyncCount();
+  const label = !configured ? "Local" : !navigator.onLine ? `Chờ mạng ${pending}` : syncBusy ? "Đang đồng bộ" : pending ? `Chờ sync ${pending}` : syncStatusText;
+  $("#syncBadge") && ($("#syncBadge").textContent = label);
+  $("#syncStatusPill") && ($("#syncStatusPill").textContent = label);
+  $("#syncOverview") && ($("#syncOverview").innerHTML = `<div class="sync-status-grid"><div><span>Kết nối</span><b>${navigator.onLine ? "Online" : "Offline"}</b></div><div><span>Chế độ</span><b>Tự động, không đăng nhập</b></div><div><span>Chưa đồng bộ</span><b>${pending}</b></div><div><span>Trạng thái</span><b>${label}</b></div></div><p class="muted">Dữ liệu luôn lưu trên thiết bị trước và tự đẩy lên Supabase khi có mạng.</p>`);
+}
+
+async function initSyncClient() {
+  const cfg = syncConfig();
+  if (!cfg.url || !cfg.key) { syncClient = null; syncStatusText = "Chưa cấu hình"; renderSyncStatus(); return false; }
+  if (syncClient) return true;
+  await loadSupabaseScript();
+  syncClient = window.supabase.createClient(cfg.url, cfg.key, { auth: { persistSession: false, autoRefreshToken: false } });
+  syncStatusText = "Sẵn sàng"; renderSyncStatus(); return true;
+}
+
+function cleanSyncRecord(item, fields) {
+  touchRecord(item, Boolean(item.deleted_at));
+  const record = {};
+  fields.forEach(field => { record[field] = field === "user_id" ? null : item[field] ?? null; });
+  return record;
+}
+
+async function syncNow() {
+  if (syncBusy || !navigator.onLine) return;
+  syncBusy = true; syncStatusText = "Đang đồng bộ"; renderSyncStatus();
+  try {
+    await initSyncClient();
+    if (!syncClient) throw new Error("Chưa cấu hình Supabase.");
+    for (const meta of syncTables()) {
+      const pending = state[meta.key].filter(item => item._sync === "pending" || !item.updated_at);
+      if (pending.length) {
+        const { error } = await syncClient.from(meta.table).upsert(pending.map(item => cleanSyncRecord(item, meta.fields)), { onConflict: "id" });
+        if (error) throw error;
+        pending.forEach(item => { item._sync = "synced"; });
+      }
+      const { data, error } = await syncClient.from(meta.table).select("*").order("updated_at", { ascending: true });
+      if (error) throw error;
+      mergeRemoteRows(meta.key, data || []);
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    syncStatusText = "Đã đồng bộ"; renderAll();
+  } catch (error) {
+    syncStatusText = "Lỗi đồng bộ"; renderSyncStatus(); showToast(error.message || "Không đồng bộ được Supabase.");
+  } finally { syncBusy = false; renderSyncStatus(); }
+}
+
+function setupSyncForms() {
+  $("#syncConfigForm")?.addEventListener("submit", async event => {
+    event.preventDefault(); saveSyncConfig({ url: event.target.url.value.trim(), key: event.target.key.value.trim() });
+    await initSyncClient(); queueAutoSync(); showToast("Đã lưu cấu hình Supabase.");
+  });
+  $("#syncNowBtn")?.addEventListener("click", syncNow);
+  window.addEventListener("online", () => { syncStatusText = "Online"; renderSyncStatus(); queueAutoSync(); });
+  window.addEventListener("offline", () => { syncStatusText = "Chờ mạng"; renderSyncStatus(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) queueAutoSync(); });
+}
+
+function renderAll() {
+  renderRoute(); renderSummary(); renderOrders(); renderSlow(); renderCabin(); renderHistory(); renderAudit(); renderSelectedCabin(); renderSyncStatus();
+  if (!$("#quickfill").classList.contains("active") || !$("#quickFillBox .slot-card")) renderQuickFill();
+  if (!$("#adjust").classList.contains("active") || !$("#stocktakeBox .stocktake-row")) renderStocktake();
+}
+
 window.addEventListener("beforeinstallprompt", event => {
   event.preventDefault();
   deferredPrompt = event;
@@ -1818,4 +2297,4 @@ setupForms();
 setupSyncForms();
 setupQuickPads();
 renderAll();
-initSyncClient().catch(() => renderSyncStatus());
+initSyncClient().then(() => queueAutoSync()).catch(() => renderSyncStatus());

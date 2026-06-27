@@ -1,4 +1,4 @@
-const CACHE = "fill-assistant-v3-4-3";
+const CACHE = "fill-assistant-v3-5-0";
 const ASSETS = ["./","./index.html","./styles.css","./data.js","./app.js","./manifest.json","./icon-192.png","./icon-512.png"];
 
 self.addEventListener("install", event => {

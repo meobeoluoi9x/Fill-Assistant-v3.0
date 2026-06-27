@@ -169,3 +169,56 @@ input[name=qty],input[name=actual],.pad-title,.summary-line span,.machine-title,
   .header-sync-form input{width:min(132px,32vw);flex:1 1 105px}
   .header-sync-account span{max-width:145px}
 }
+
+/* V3.5.0 - drawer navigation and consolidated workflows */
+body{background:#f1f5f9}
+.app-header{display:grid;grid-template-columns:42px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:12px 16px;min-height:68px}
+.app-brand{min-width:0}
+.app-brand h1{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-brand p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.icon-btn{display:grid;place-items:center;width:40px;height:40px;padding:0;border-radius:8px;background:#2563eb;color:white;font-size:25px;line-height:1}
+.icon-btn.dark{background:#e2e8f0;color:#0f172a;font-size:27px}
+.nav-overlay{position:fixed;inset:0;z-index:89;background:rgba(15,23,42,.52);backdrop-filter:blur(2px)}
+.side-nav{position:fixed;inset:0 auto 0 0;z-index:90;width:min(286px,86vw);display:flex;flex-direction:column;gap:5px;padding:12px;background:white;border-right:1px solid #cbd5e1;box-shadow:18px 0 45px rgba(15,23,42,.24);overflow-y:auto;transform:translateX(-105%);transition:transform .22s ease;top:0}
+.side-nav.open{transform:translateX(0)}
+.side-nav-head{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 12px;border-bottom:1px solid #e2e8f0;margin-bottom:5px}
+.side-nav-head strong{font-size:18px}
+.side-nav .tab{width:100%;padding:12px;text-align:left;border-radius:7px;background:transparent;color:#334155}
+.side-nav .tab:hover{background:#f1f5f9}
+.side-nav .tab.active{background:#0f172a;color:white}
+body.drawer-open{overflow:hidden}
+main{max-width:1120px;padding:14px}
+.card,.summary-card,.action-metric{border-radius:8px}
+.form-grid{display:grid;gap:10px}
+.form-grid.two-col{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:12px}
+.conversion-note{padding:10px 12px;border-left:4px solid #16a34a;border-radius:6px;background:#f0fdf4;color:#166534;font-weight:900;text-align:center}
+.history-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px;border:1px solid #cbd5e1;border-radius:8px;background:#f1f5f9;margin:12px 0}
+.history-tab{min-height:40px;padding:8px;border-radius:6px;background:transparent;color:#334155;font-size:13px}
+.history-tab.active{background:#0f172a;color:white}
+.history-filters{display:grid;grid-template-columns:160px 180px minmax(180px,1fr);gap:10px;margin-bottom:14px}
+.history-filters input,.history-filters select{padding:10px;font-size:14px}
+.history-row{display:grid;grid-template-columns:minmax(0,1fr) 180px auto;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid #e2e8f0}
+.history-row:last-child{border-bottom:0}
+.history-row b,.history-row span{display:block}
+.history-row span{margin-top:3px;color:#64748b;font-size:12px;font-weight:800}
+.history-row strong{text-align:right;font-variant-numeric:tabular-nums}
+.stocktake-list{display:grid;gap:7px}
+.stocktake-row{display:grid;grid-template-columns:minmax(0,1fr) 120px;align-items:center;gap:12px;padding:10px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}
+.stocktake-row span,.stocktake-row small{display:block}
+.stocktake-row small{margin-top:3px;color:#64748b}
+.stocktake-row input{padding:10px;text-align:center;font-weight:900}
+.stocktake-actions{position:sticky;bottom:10px;display:grid;grid-template-columns:110px minmax(0,1fr);gap:8px;margin-top:12px;padding:10px;border:1px solid #bfdbfe;border-radius:8px;background:rgba(255,255,255,.97);box-shadow:0 10px 24px rgba(15,23,42,.14)}
+.stocktake-actions .btn{width:100%}
+.sync-badge{margin-left:auto;border-radius:7px}
+@media(max-width:720px){
+  .app-header{display:grid;grid-template-columns:40px minmax(0,1fr) auto;padding:10px 12px;align-items:center}
+  .app-header #installBtn{display:none!important}
+  .app-brand h1{font-size:18px}
+  .app-brand p{font-size:11px}
+  .sync-badge{max-width:104px;overflow:hidden;text-overflow:ellipsis}
+  .form-grid.two-col,.history-filters{grid-template-columns:1fr}
+  .history-tabs{grid-template-columns:1fr}
+  .history-row{grid-template-columns:minmax(0,1fr) auto}
+  .history-row .actions{grid-column:1/-1;justify-content:flex-end}
+  .stocktake-row{grid-template-columns:minmax(0,1fr) 94px}
+}
