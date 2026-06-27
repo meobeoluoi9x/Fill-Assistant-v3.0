@@ -30,7 +30,6 @@
       <button class="tab" data-view="quickfill">Fill nhanh</button>
       <button class="tab" data-view="ncc">Nhập hàng</button>
       <button class="tab" data-view="cabin">Tồn cabin</button>
-      <button class="tab" data-view="adjust">Kiểm kê cabin</button>
       <button class="tab" data-view="history">Lịch sử</button>
       <button class="tab" data-view="audit">Kiểm tra</button>
       <button class="tab" data-view="backup">Sao lưu</button>
@@ -95,6 +94,7 @@
         </article>
       </section>
 
+      <!-- Section adjust vẫn giữ để openStocktake() hoạt động nếu cần, nhưng không có tab riêng -->
       <section id="adjust" class="view">
         <article class="card">
           <div class="section-head"><h2>Kiểm kê cabin</h2><span class="hint">Lưu toàn bộ một lượt</span></div>
@@ -125,7 +125,22 @@
       </section>
 
       <section id="audit" class="view">
-        <article class="card"><h2>Kiểm tra dữ liệu</h2><p class="muted">Phát hiện tồn cabin âm hoặc dữ liệu cần chú ý.</p><div id="auditBox"></div></article>
+        <!-- Phần kiểm kê cabin (gộp từ tab adjust) -->
+        <article class="card">
+          <div class="section-head"><h2>Kiểm kê cabin</h2><span class="hint">Lưu toàn bộ một lượt</span></div>
+          <div class="form-grid two-col">
+            <label>Ngày <input id="auditStocktakeDate" type="date" /></label>
+            <label>Máy <select id="auditStocktakeMachine"></select></label>
+          </div>
+          <p class="muted">Nhập tồn thực tế theo sản phẩm. Hệ thống tự tính chênh lệch.</p>
+          <div id="auditStocktakeBox"></div>
+        </article>
+        <!-- Phần kiểm tra dữ liệu -->
+        <article class="card">
+          <h2>Kiểm tra dữ liệu</h2>
+          <p class="muted">Phát hiện tồn cabin âm hoặc dữ liệu cần chú ý.</p>
+          <div id="auditBox"></div>
+        </article>
       </section>
 
       <section id="backup" class="view">
